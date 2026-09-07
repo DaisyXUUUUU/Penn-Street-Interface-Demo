@@ -40,6 +40,8 @@ h1 { font-size:21px; }
 .arrival-alert { position:absolute; z-index:20; inset:0; display:grid; align-content:center; justify-items:center; padding:48px; border:0; background:#ff9e18f2; color:#1d1d1d; box-shadow:inset 0 0 0 10px #bd6900; text-align:center; animation:arrival-alert-bounce .65s ease-in-out infinite; }
 .arrival-alert.critical { background:#e33732f2; box-shadow:inset 0 0 0 10px #9f1212; color:#fff; }.alert-kicker,.arrival-alert strong,.arrival-alert span,.arrival-alert b { display:block; }.alert-kicker { margin-bottom:10px; font-size:21px; font-weight:800; letter-spacing:1.5px; text-transform:uppercase; }.arrival-alert strong { font-size:76px; line-height:1; }.arrival-alert span { margin-top:12px; font-size:30px; font-weight:700; }.arrival-alert b { margin-top:26px; font-size:35px; text-transform:uppercase; }.arrival-alert[hidden] { display:none; } @keyframes arrival-alert-bounce { 0%,100% { transform:scale(1); } 50% { transform:scale(1.025); } }
 
+.live-stop-mode .route-carousel { grid-template-columns:minmax(0, 1fr); }.live-stop-mode .route-peek,.live-stop-mode .route-navigation { display:none; }.live-stop-mode .screen-body { padding-bottom:14px; }
+
 /* First-bus urgency color states apply to the entire arrival card. */
 .arrival-card { transition:background-color .35s ease, border-color .35s ease; }
 .arrival-card.time-safe { border-color:#9bcfa6; background:#e8f7e9; }

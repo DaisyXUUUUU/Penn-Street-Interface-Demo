@@ -1,14 +1,16 @@
 # Smart Bus Stop Demo
 
-An interactive, iPad-portrait prototype for a smart bus-stop display. The visual language is inspired by SEPTA stop information, while the demo focuses on route switching, vehicle progress, contextual arrival alerts, and live-arrival storytelling.
+An interactive, iPad-portrait prototype for a smart bus-stop display. The visual language is inspired by SEPTA stop information. Prototype 1 now uses live SEPTA data for **Routes 21 and 40 at 38th St & Chestnut St** (stop IDs `622` and `22285`).
 
 **Live demo:** [penn-street-interface-demo.vercel.app](https://penn-street-interface-demo.vercel.app)
 
-> This is a design-demo prototype. Route, stop, arrival, and destination data are fictional and must not be used for real travel decisions.
+> This remains a design-demo prototype. Although the arrival and vehicle information is live, it is not a replacement for official travel information.
 
 ## Run locally
 
-This is a dependency-free static site. Open `index.html` directly in a browser, or start a local server from the project root:
+The visual interface is dependency-free. The live-data endpoint is a Vercel Serverless Function, so it is available on the deployed site (or when running through Vercel's local development environment).
+
+To view the layout only, open `index.html` directly in a browser, or start a local server from the project root:
 
 ```bash
 python3 -m http.server 4173
@@ -16,13 +18,20 @@ python3 -m http.server 4173
 
 Then open [http://127.0.0.1:4173](http://127.0.0.1:4173).
 
+## Live data
+
+- No API key is required.
+- `api/septa-arrivals.js` reads SEPTA's public GTFS-realtime Trip Updates feed for the next two predictions on each route, and SEPTA TransitView for Route 21 and Route 40 vehicle locations.
+- The browser calls the same-site endpoint `/api/septa-arrivals` every 5 seconds. This server-side relay avoids the browser cross-origin restriction on SEPTA's public feeds.
+- Arrival countdowns use real time. The vehicle icon moves toward `YOUR STOP` according to the latest reported vehicle distance.
+- If no reliable prediction is present, the interface shows `—` instead of invented arrival data.
+
 ## Current interactions
 
 - Portrait iPad layout with a SEPTA information header, route cards, and a Stop ID footer.
-- The active route card presents the route number, previous stop, current stop, intermediate stops, destination, and arrivals for two buses.
-- Use the bottom left and right controls to switch between fictional routes. The partial cards at each side preview adjacent routes.
-- The first bus moves from left to right along its progress line toward `YOUR STOP`, synchronized to its arrival countdown.
-- Demo time scale: **1 real-world second = 10 seconds in the interface**.
+- The live route card presents the route number, stop, vehicle status, destination, and the next two predicted arrivals.
+- Use the bottom left and right controls to switch between Routes 21 and 40. The partial cards preview the adjacent route.
+- The first bus moves from left to right along its progress line toward `YOUR STOP`, synchronized to its live vehicle location.
 - The full arrival/progress card changes colour based on the first bus's remaining time:
   - More than 5 minutes: pale green
   - 1–5 minutes: pale orange
@@ -35,7 +44,9 @@ Then open [http://127.0.0.1:4173](http://127.0.0.1:4173).
 .
 ├── index.html                    # Page structure
 ├── styles.css                    # Responsive visual styles and animations
-├── script.js                     # Demo route data, timers, switching, and alerts
+├── script.js                     # Live-data UI, countdowns, vehicle progress, and alerts
+├── api/
+│   └── septa-arrivals.js         # Vercel endpoint that reads SEPTA live feeds
 ├── assets/
 │   ├── header-strip-cropped.png  # User-supplied header artwork
 │   ├── footer-strip-cropped.png  # User-supplied footer artwork
@@ -43,21 +54,6 @@ Then open [http://127.0.0.1:4173](http://127.0.0.1:4173).
 └── deliverables/                 # Storyboard exports
 ```
 
-## Editing demo routes
+## Changing the live stop
 
-All fictional routes are defined in the `routes` array in `script.js`. Each route controls its route number, stops, destination, and arrival times:
-
-```js
-{
-  number: '124',
-  previous: 'Girard Ave & 33rd St',
-  current: '69th Street Transportation Center',
-  stops: [['Market St & 69th St', '1 stop away']],
-  final: 'Girard Ave & 5th St',
-  detail: '(Temple University)',
-  first: 120,
-  second: 720
-}
-```
-
-For a production version, replace this local demo data with a transit API response, then update the arrival values and vehicle-position logic using real predictions or GPS data.
+In `api/septa-arrivals.js`, update `ROUTE_STOPS` with the SEPTA stop IDs, coordinates, and route numbers. Keep `ROUTE_STOPS` in `script.js` synchronized with the same routes and stop names.

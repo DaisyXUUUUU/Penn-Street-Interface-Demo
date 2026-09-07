@@ -1,8 +1,9 @@
-const routes = [
-  { number: '124', previous: 'Girard Ave & 33rd St', current: '69th Street Transportation Center', stops: [['Market St & 69th St', '1 stop away'], ['Market St & 63rd St', '2 stops away']], final: 'Girard Ave & 5th St', detail: '(Temple University)', first: 120, second: 720 },
-  { number: '21', previous: 'Walnut St & 34th St', current: 'Penn Medicine Station', stops: [['30th Street Station', '1 stop away'], ['Market St & 22nd St', '3 stops away']], final: 'Navy Yard Terminal', detail: '(South Philadelphia)', first: 420, second: 1020 },
-  { number: '33', previous: 'Frankford Ave & Girard Ave', current: 'Frankford Transportation Center', stops: [['Aramingo Ave & York St', '2 stops away'], ['Richmond St & Allegheny Ave', '4 stops away']], final: 'Penn’s Landing', detail: '(Columbus Boulevard)', first: 300, second: 900 }
+const ROUTE_STOPS = [
+  { id: '622', route: '21', name: 'Chestnut St & 38th St', previous: 'Chestnut St & 39th St' },
+  { id: '22285', route: '40', name: '38th St & Chestnut St', previous: '40th St & Chestnut St' }
 ];
+const POLL_INTERVAL_MS = 5_000;
+const PROGRESS_DISTANCE_METERS = 1_600;
 
 const routePanel = document.querySelector('.route-panel');
 const routeNumber = document.querySelector('#route-number');
@@ -10,109 +11,162 @@ const previousStop = document.querySelector('#previous-stop');
 const firstTime = document.querySelector('#first-time');
 const secondTime = document.querySelector('#second-time');
 const arrivalCard = document.querySelector('.arrival-card');
+const arrivalCaption = document.querySelector('.arrival-card > p');
+const journeyLabel = document.querySelector('.journey-label');
+const vehicle = document.querySelector('.vehicle');
+const progress = document.querySelector('.track-progress');
 const stops = document.querySelector('#stops');
 const previousPeek = document.querySelector('.route-peek--previous span');
 const nextPeek = document.querySelector('.route-peek--next span');
-const vehicle = document.querySelector('.vehicle');
-const progress = document.querySelector('.track-progress');
+const previousButton = document.querySelector('.route-switch.previous');
+const nextButton = document.querySelector('.route-switch.next');
 const arrivalAlert = document.querySelector('#arrival-alert');
 const alertKicker = document.querySelector('#alert-kicker');
 const alertRoute = document.querySelector('#alert-route');
 const alertDirection = document.querySelector('#alert-direction');
 const alertMessage = document.querySelector('#alert-message');
+
+let liveData = null;
 let routeIndex = 0;
-let routeStartedAt = Date.now();
-let pointerStartX = null;
-const demoSecondsPerSecond = 10;
+let isLoading = false;
 let alertTimer = null;
-let alertKeys = new Set();
-let previousRemaining = { first: Infinity, second: Infinity };
+const alertKeys = new Set();
+const previousRemaining = new Map();
+
+function selectedRoute() {
+  const selectedId = ROUTE_STOPS[routeIndex].route;
+  return liveData?.routes?.find((item) => item.route === selectedId) || ROUTE_STOPS[routeIndex];
+}
 
 function setTime(element, seconds) {
-  element.innerHTML = `${Math.max(0, Math.ceil(seconds / 60))}<small> min</small>`;
+  if (!Number.isFinite(seconds)) {
+    element.textContent = '—';
+    return;
+  }
+  const minutes = Math.max(0, Math.ceil(seconds / 60));
+  element.innerHTML = `${minutes}<small> min</small>`;
 }
 
 function updateFirstBusStatus(remaining) {
   arrivalCard.classList.remove('time-safe', 'time-soon', 'time-now');
+  if (!Number.isFinite(remaining)) return;
   if (remaining > 300) arrivalCard.classList.add('time-safe');
   else if (remaining >= 60) arrivalCard.classList.add('time-soon');
   else arrivalCard.classList.add('time-now');
 }
 
-function renderStops(route) {
-  const middle = route.stops.map(([name, distance]) => `<div class="stop"><span class="dot"></span><div><h3>${name}</h3><p>${distance}</p></div></div>`).join('');
-  stops.innerHTML = `<div class="stop current"><span class="dot"></span><div><h2>${route.current}</h2><label>You are here</label></div></div>${middle}<div class="stop final"><span class="dot"></span><div><h3><span class="final-badge">Final stop</span><span>${route.final}</span></h3><p>${route.detail}</p></div></div>`;
+function renderStopDetails(route) {
+  const first = route.arrivals?.[0];
+  const final = first?.destination || `Route ${route.route} destination`;
+  const vehicleDetails = first?.vehicleId
+    ? `Vehicle ${first.vehicleId}${first.nextStopName ? ` · next: ${first.nextStopName}` : ''}`
+    : 'Waiting for the next live vehicle update';
+  stops.innerHTML = `
+    <div class="stop current"><span class="dot"></span><div><h2>${route.name}</h2><label>You are here</label></div></div>
+    <div class="stop"><span class="dot"></span><div><h3>Live vehicle status</h3><p>${vehicleDetails}</p></div></div>
+    <div class="stop final"><span class="dot"></span><div><h3><span class="final-badge">To</span><span>${final}</span></h3><p>${first?.direction || `Route ${route.route} live service`}</p></div></div>`;
 }
 
-function renderRoute() {
-  const route = routes[routeIndex];
-  const previous = routes[(routeIndex - 1 + routes.length) % routes.length];
-  const next = routes[(routeIndex + 1) % routes.length];
-  routeNumber.textContent = route.number;
+function renderSelectedRoute(animationClass) {
+  const route = selectedRoute();
+  routeNumber.textContent = route.route;
   previousStop.textContent = route.previous;
-  previousPeek.textContent = previous.number;
-  nextPeek.textContent = next.number;
-  routePanel.setAttribute('aria-label', `Route ${route.number} information`);
-  renderStops(route);
-  routeStartedAt = Date.now();
-  alertKeys = new Set();
-  previousRemaining = { first: Infinity, second: Infinity };
+  previousPeek.textContent = ROUTE_STOPS[(routeIndex - 1 + ROUTE_STOPS.length) % ROUTE_STOPS.length].route;
+  nextPeek.textContent = ROUTE_STOPS[(routeIndex + 1) % ROUTE_STOPS.length].route;
+  routePanel.setAttribute('aria-label', `Live information for Route ${route.route} at ${route.name}`);
+  renderStopDetails(route);
+  journeyLabel.textContent = liveData ? 'Live vehicle location' : 'Waiting for live data';
+  if (animationClass) {
+    routePanel.classList.remove('slide-left', 'slide-right');
+    void routePanel.offsetWidth;
+    routePanel.classList.add(animationClass);
+    window.setTimeout(() => routePanel.classList.remove(animationClass), 340);
+  }
 }
 
-function showArrivalAlert(type, busNumber, route) {
+function showArrivalAlert(type, busNumber, route, destination) {
   clearTimeout(alertTimer);
   arrivalAlert.classList.toggle('critical', type === 'critical');
   alertKicker.textContent = type === 'critical' ? 'Arrival imminent' : 'Last minute alert';
-  alertRoute.textContent = `Route ${route.number} · Bus ${busNumber}`;
-  alertDirection.textContent = `To ${route.final}`;
+  alertRoute.textContent = `Route ${route} · Bus ${busNumber}`;
+  alertDirection.textContent = `To ${destination || `Route ${route} destination`}`;
   alertMessage.textContent = type === 'critical' ? 'Arriving in 10 seconds' : 'Arriving in 1 minute';
   arrivalAlert.hidden = false;
   alertTimer = setTimeout(() => { arrivalAlert.hidden = true; }, 5000);
 }
 
-function checkArrivalThreshold(busNumber, remaining, route) {
-  const prior = previousRemaining[busNumber];
-  const thresholds = [
-    { seconds: 60, type: 'warning' },
-    { seconds: 10, type: 'critical' }
-  ];
-  thresholds.forEach(({ seconds, type }) => {
-    const key = `${busNumber}-${type}`;
+function checkArrivalThreshold(busNumber, route, arrival, remaining) {
+  const arrivalId = `${route}-${arrival.vehicleId || 'trip'}-${arrival.arrivalEpoch}`;
+  const prior = previousRemaining.get(arrivalId) ?? Infinity;
+  [{ seconds: 60, type: 'warning' }, { seconds: 10, type: 'critical' }].forEach(({ seconds, type }) => {
+    const key = `${arrivalId}-${type}`;
     if (!alertKeys.has(key) && prior > seconds && remaining <= seconds && remaining > 0) {
       alertKeys.add(key);
-      showArrivalAlert(type, busNumber === 'first' ? 1 : 2, route);
+      showArrivalAlert(type, busNumber, route, arrival.destination);
     }
   });
-  previousRemaining[busNumber] = remaining;
+  previousRemaining.set(arrivalId, remaining);
 }
 
-function updatePredictions() {
-  const route = routes[routeIndex];
-  // Demo time: one real-world second represents one minute of arrival time.
-  const elapsed = ((Date.now() - routeStartedAt) / 1000) * demoSecondsPerSecond;
-  const journey = Math.min(1, elapsed / route.first);
-  const firstRemaining = Math.max(0, route.first - elapsed);
-  const secondRemaining = Math.max(0, route.second - elapsed);
+function updateInterface() {
+  const route = selectedRoute();
+  const arrivals = route.arrivals || [];
+  const first = arrivals[0];
+  const second = arrivals[1];
+  const now = Date.now() / 1000;
+  const firstRemaining = first ? Math.max(0, first.arrivalEpoch - now) : NaN;
+  const secondRemaining = second ? Math.max(0, second.arrivalEpoch - now) : NaN;
+
   setTime(firstTime, firstRemaining);
   setTime(secondTime, secondRemaining);
   updateFirstBusStatus(firstRemaining);
-  checkArrivalThreshold('first', firstRemaining, route);
-  checkArrivalThreshold('second', secondRemaining, route);
-  vehicle.style.left = `${16 + journey * 66}%`;
-  progress.style.width = `${16 + journey * 66}%`;
-  requestAnimationFrame(updatePredictions);
+
+  if (first) checkArrivalThreshold(1, route.route, first, firstRemaining);
+  if (second) checkArrivalThreshold(2, route.route, second, secondRemaining);
+
+  const distance = first?.distanceMeters;
+  const travelProgress = Number.isFinite(distance)
+    ? Math.max(0, Math.min(1, 1 - distance / PROGRESS_DISTANCE_METERS))
+    : 0;
+  const position = 16 + travelProgress * 66;
+  vehicle.style.left = `${position}%`;
+  progress.style.width = `${position}%`;
+  requestAnimationFrame(updateInterface);
+}
+
+async function loadLiveData() {
+  if (isLoading || document.hidden) return;
+  isLoading = true;
+  try {
+    const response = await fetch('/api/septa-arrivals', { cache: 'no-store' });
+    if (!response.ok) throw new Error('The live-data endpoint did not respond.');
+    liveData = await response.json();
+    renderSelectedRoute();
+    arrivalCaption.innerHTML = '<i></i> Live SEPTA arrival predictions · updated every 5 sec';
+  } catch (error) {
+    if (!liveData) {
+      renderSelectedRoute();
+      arrivalCaption.textContent = 'Live data is available in the deployed site.';
+    } else {
+      arrivalCaption.innerHTML = '<i></i> Showing the most recent SEPTA update';
+    }
+  } finally {
+    isLoading = false;
+  }
 }
 
 function switchRoute(step) {
-  routeIndex = (routeIndex + step + routes.length) % routes.length;
-  renderRoute();
-  routePanel.classList.remove('slide-left', 'slide-right');
-  routePanel.classList.add(step > 0 ? 'slide-left' : 'slide-right');
+  routeIndex = (routeIndex + step + ROUTE_STOPS.length) % ROUTE_STOPS.length;
+  renderSelectedRoute(step > 0 ? 'slide-left' : 'slide-right');
 }
 
-document.querySelector('.previous').addEventListener('click', () => switchRoute(-1));
-document.querySelector('.next').addEventListener('click', () => switchRoute(1));
-routePanel.addEventListener('animationend', () => routePanel.classList.remove('slide-left', 'slide-right'));
+previousButton.addEventListener('click', () => switchRoute(-1));
+nextButton.addEventListener('click', () => switchRoute(1));
+document.addEventListener('visibilitychange', () => {
+  if (!document.hidden) loadLiveData();
+});
 
-renderRoute();
-updatePredictions();
+renderSelectedRoute();
+loadLiveData();
+window.setInterval(loadLiveData, POLL_INTERVAL_MS);
+updateInterface();
