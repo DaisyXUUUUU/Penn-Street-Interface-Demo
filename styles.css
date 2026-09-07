@@ -1,7 +1,7 @@
 :root { font-family: Arial, Helvetica, sans-serif; color: #171717; background: #d9e0e9; }
 * { box-sizing: border-box; }
 body { margin: 0; min-height: 100vh; display: grid; place-items: center; background: radial-gradient(circle at 50% 20%, #f5f8fc, #cbd5e2); }
-.kiosk-shell { width: min(100vw, 768px); min-height: 100vh; background: #fff; display: flex; flex-direction: column; overflow: hidden; box-shadow: 0 15px 55px #1d2b3f52; }
+.kiosk-shell { width: min(100vw, 768px); min-height: 100vh; background: #fff; display: flex; flex-direction: column; overflow: hidden; box-shadow: 0 15px 55px #1d2b3f52; transform:scale(var(--interface-scale, 1)); transform-origin:center; transition:transform .18s ease-out; }
 .topbar { flex: 0 0 auto; line-height: 0; background: #fff; }
 .topbar img { display:block; width:100%; height:auto; }
 .brand { align-self: stretch; display: flex; flex-direction: column; justify-content:center; gap: 8px; font-size: 30px; font-weight: 700; letter-spacing: -.6px; }

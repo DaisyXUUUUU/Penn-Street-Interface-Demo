@@ -205,8 +205,19 @@ function switchRoute(step) {
   renderSelectedRoute(step > 0 ? 'slide-left' : 'slide-right');
 }
 
+function setInterfaceZoom(scale) {
+  const safeScale = Math.max(0.85, Math.min(1.18, Number(scale) || 1));
+  document.documentElement.style.setProperty('--interface-scale', safeScale.toFixed(3));
+}
+
 previousButton.addEventListener('click', () => switchRoute(-1));
 nextButton.addEventListener('click', () => switchRoute(1));
+window.addEventListener('busstop:route-change', (event) => {
+  switchRoute(event.detail?.direction === 'previous' ? -1 : 1);
+});
+window.addEventListener('busstop:zoom', (event) => {
+  setInterfaceZoom(event.detail?.scale);
+});
 document.addEventListener('visibilitychange', () => {
   if (!document.hidden) loadLiveData();
 });
