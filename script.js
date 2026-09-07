@@ -1,6 +1,6 @@
 const ROUTE_STOPS = [
-  { id: '622', route: '21', name: 'Chestnut St & 38th St', previous: 'Chestnut St & 39th St' },
-  { id: '22285', route: '40', name: '38th St & Chestnut St', previous: '40th St & Chestnut St' }
+  { id: '622', route: '21', name: 'Chestnut St & 38th St' },
+  { id: '22285', route: '40', name: '38th St & Chestnut St' }
 ];
 const POLL_INTERVAL_MS = 5_000;
 const PROGRESS_DISTANCE_METERS = 1_600;
@@ -58,19 +58,18 @@ function updateFirstBusStatus(remaining) {
 function renderStopDetails(route) {
   const first = route.arrivals?.[0];
   const final = first?.destination || `Route ${route.route} destination`;
-  const vehicleDetails = first?.vehicleId
-    ? `Vehicle ${first.vehicleId}${first.nextStopName ? ` · next: ${first.nextStopName}` : ''}`
-    : 'Waiting for the next live vehicle update';
+  const nextStop = route.nextStop || 'Loading official stop sequence…';
+  const vehicleDetails = first?.vehicleId ? `Live vehicle ${first.vehicleId}` : 'Waiting for live vehicle data';
   stops.innerHTML = `
     <div class="stop current"><span class="dot"></span><div><h2>${route.name}</h2><label>You are here</label></div></div>
-    <div class="stop"><span class="dot"></span><div><h3>Live vehicle status</h3><p>${vehicleDetails}</p></div></div>
+    <div class="stop"><span class="dot"></span><div><h3>${nextStop}</h3><p>Next stop · ${vehicleDetails}</p></div></div>
     <div class="stop final"><span class="dot"></span><div><h3><span class="final-badge">To</span><span>${final}</span></h3><p>${first?.direction || `Route ${route.route} live service`}</p></div></div>`;
 }
 
 function renderSelectedRoute(animationClass) {
   const route = selectedRoute();
   routeNumber.textContent = route.route;
-  previousStop.textContent = route.previous;
+  previousStop.textContent = route.previousStop || 'Loading official stop sequence…';
   previousPeek.textContent = ROUTE_STOPS[(routeIndex - 1 + ROUTE_STOPS.length) % ROUTE_STOPS.length].route;
   nextPeek.textContent = ROUTE_STOPS[(routeIndex + 1) % ROUTE_STOPS.length].route;
   routePanel.setAttribute('aria-label', `Live information for Route ${route.route} at ${route.name}`);

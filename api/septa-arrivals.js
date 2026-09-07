@@ -5,7 +5,9 @@ const ROUTE_STOPS = [
     lat: 39.955111,
     lng: -75.198603,
     route: '21',
-    previous: 'Chestnut St & 39th St'
+    directionId: 0,
+    previousStop: 'Chestnut St & 39th St',
+    nextStop: 'Chestnut St & 37th St'
   },
   {
     id: '22285',
@@ -13,7 +15,9 @@ const ROUTE_STOPS = [
     lat: 39.955084,
     lng: -75.198261,
     route: '40',
-    previous: '40th St & Chestnut St'
+    directionId: 1,
+    previousStop: '38th St & Walnut St',
+    nextStop: 'Market St & 38th St - FS'
   }
 ];
 
@@ -159,7 +163,7 @@ module.exports = async (_request, response) => {
             vehicleId: prediction.vehicleId,
             destination: vehicle?.destination || `Route ${stop.route} destination`,
             direction: vehicle?.Direction || null,
-            nextStopName: vehicle?.next_stop_name || null,
+            vehicleNextStopName: vehicle?.next_stop_name || null,
             distanceMeters: Number.isFinite(lat) && Number.isFinite(lng)
               ? distanceMeters(lat, lng, stop.lat, stop.lng)
               : null
