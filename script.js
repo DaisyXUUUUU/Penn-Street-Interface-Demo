@@ -59,7 +59,9 @@ function renderStopDetails(route) {
   const first = route.arrivals?.[0];
   const final = first?.destination || `Route ${route.route} destination`;
   const nextStop = route.nextStop || 'Loading official stop sequence…';
-  const vehicleDetails = first?.vehicleId ? `Live vehicle ${first.vehicleId}` : 'Waiting for live vehicle data';
+  const vehicleDetails = first?.vehicleId
+    ? `Live vehicle ${first.vehicleId}`
+    : first ? 'Scheduled · live GPS pending' : 'Waiting for SEPTA data';
   stops.innerHTML = `
     <div class="stop current"><span class="dot"></span><div><h2>${route.name}</h2><label>You are here</label></div></div>
     <div class="stop"><span class="dot"></span><div><h3>${nextStop}</h3><p>Next stop · ${vehicleDetails}</p></div></div>
@@ -74,13 +76,34 @@ function renderSelectedRoute(animationClass) {
   nextPeek.textContent = ROUTE_STOPS[(routeIndex + 1) % ROUTE_STOPS.length].route;
   routePanel.setAttribute('aria-label', `Live information for Route ${route.route} at ${route.name}`);
   renderStopDetails(route);
-  journeyLabel.textContent = liveData ? 'Live vehicle location' : 'Waiting for live data';
+  const first = route.arrivals?.[0];
+  journeyLabel.textContent = first?.source === 'realtime'
+    ? 'Live vehicle location'
+    : first ? 'Scheduled arrival · GPS pending' : 'Waiting for SEPTA data';
+  updateArrivalCaption(route);
   if (animationClass) {
     routePanel.classList.remove('slide-left', 'slide-right');
     void routePanel.offsetWidth;
     routePanel.classList.add(animationClass);
     window.setTimeout(() => routePanel.classList.remove(animationClass), 340);
   }
+}
+
+function updateArrivalCaption(route) {
+  if (!liveData) return;
+  if (route.stale) {
+    arrivalCaption.innerHTML = '<i></i> Showing the most recent SEPTA update';
+    return;
+  }
+  if (route.arrivalDataAvailable === false) {
+    arrivalCaption.textContent = 'SEPTA arrival feed unavailable · retrying every 5 sec';
+    return;
+  }
+  const sources = new Set(route.arrivals?.map((arrival) => arrival.source));
+  const status = sources.has('realtime')
+    ? (sources.has('scheduled') ? 'Live + scheduled SEPTA arrivals' : 'Live SEPTA predictions')
+    : 'Official SEPTA schedule · checking live data';
+  arrivalCaption.innerHTML = `<i></i> ${status} · updated every 5 sec`;
 }
 
 function showArrivalAlert(type, busNumber, route, destination) {
@@ -120,16 +143,17 @@ function updateInterface() {
   setTime(secondTime, secondRemaining);
   updateFirstBusStatus(firstRemaining);
 
-  if (first) checkArrivalThreshold(1, route.route, first, firstRemaining);
-  if (second) checkArrivalThreshold(2, route.route, second, secondRemaining);
+  if (first?.source === 'realtime') checkArrivalThreshold(1, route.route, first, firstRemaining);
+  if (second?.source === 'realtime') checkArrivalThreshold(2, route.route, second, secondRemaining);
 
   const distance = first?.distanceMeters;
   const travelProgress = Number.isFinite(distance)
     ? Math.max(0, Math.min(1, 1 - distance / PROGRESS_DISTANCE_METERS))
     : 0;
   const position = 16 + travelProgress * 66;
+  vehicle.hidden = !Number.isFinite(distance);
   vehicle.style.left = `${position}%`;
-  progress.style.width = `${position}%`;
+  progress.style.width = Number.isFinite(distance) ? `${position}%` : '0%';
   requestAnimationFrame(updateInterface);
 }
 
@@ -139,9 +163,31 @@ async function loadLiveData() {
   try {
     const response = await fetch('/api/septa-arrivals', { cache: 'no-store' });
     if (!response.ok) throw new Error('The live-data endpoint did not respond.');
-    liveData = await response.json();
+    const nextData = await response.json();
+    if (liveData) {
+      nextData.routes = nextData.routes.map((route) => {
+        const previous = liveData.routes.find((item) => item.route === route.route);
+        if (route.arrivalDataAvailable && route.scheduleAvailable) return { ...route, stale: false };
+        if (route.arrivalDataAvailable && !route.scheduleAvailable) {
+          const now = Date.now() / 1000;
+          const retainedSchedule = (previous?.arrivals || []).filter((arrival) =>
+            arrival.source === 'scheduled' && arrival.arrivalEpoch >= now - 30);
+          const arrivals = [...route.arrivals];
+          retainedSchedule.forEach((scheduled) => {
+            const duplicatesLive = arrivals.some((arrival) =>
+              Math.abs(arrival.arrivalEpoch - scheduled.arrivalEpoch) < 480);
+            if (!duplicatesLive) arrivals.push(scheduled);
+          });
+          arrivals.sort((a, b) => a.arrivalEpoch - b.arrivalEpoch);
+          return { ...route, arrivals: arrivals.slice(0, 2), stale: retainedSchedule.length > 0 };
+        }
+        return previous?.arrivals?.length
+          ? { ...route, arrivals: previous.arrivals, stale: true }
+          : route;
+      });
+    }
+    liveData = nextData;
     renderSelectedRoute();
-    arrivalCaption.innerHTML = '<i></i> Live SEPTA arrival predictions · updated every 5 sec';
   } catch (error) {
     if (!liveData) {
       renderSelectedRoute();

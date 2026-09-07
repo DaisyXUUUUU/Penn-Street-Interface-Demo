@@ -133,26 +133,117 @@ function distanceMeters(lat1, lng1, lat2, lng2) {
   return Math.round(2 * radius * Math.asin(Math.sqrt(a)));
 }
 
+async function fetchWithRetry(url, attempts = 2) {
+  let lastError;
+  for (let attempt = 0; attempt < attempts; attempt += 1) {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 2500);
+    try {
+      const separator = url.includes('?') ? '&' : '?';
+      const requestUrl = `${url}${separator}_=${Date.now()}-${attempt}`;
+      const result = await fetch(requestUrl, {
+        cache: 'no-store',
+        signal: controller.signal,
+        headers: {
+          Accept: '*/*',
+          Connection: 'close',
+          'User-Agent': 'Mozilla/5.0 SEPTA-stop-display/1.0'
+        }
+      });
+      if (result.ok) return result;
+      lastError = new Error(`SEPTA returned ${result.status} for ${url}`);
+    } catch (error) {
+      lastError = error;
+    } finally {
+      clearTimeout(timeout);
+    }
+  }
+  throw lastError;
+}
+
+async function fetchBusSchedule(stopId) {
+  const endpoint = 'https://www3.septa.org/api/BusSchedules/index.php';
+  return Promise.any(['stop_id', 'req1'].map((parameter) =>
+    fetchWithRetry(`${endpoint}?${parameter}=${stopId}`, 1).then((response) => response.json())));
+}
+
+function easternOffsetMilliseconds(epochMilliseconds) {
+  const parts = new Intl.DateTimeFormat('en-US', {
+    timeZone: 'America/New_York',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+    hourCycle: 'h23'
+  }).formatToParts(new Date(epochMilliseconds));
+  const values = Object.fromEntries(parts.filter((part) => part.type !== 'literal').map((part) => [part.type, part.value]));
+  const representedAsUtc = Date.UTC(
+    Number(values.year),
+    Number(values.month) - 1,
+    Number(values.day),
+    Number(values.hour),
+    Number(values.minute),
+    Number(values.second)
+  );
+  return representedAsUtc - epochMilliseconds;
+}
+
+function parseEasternScheduleTime(value) {
+  const match = value?.match(/^(\d{2})\/(\d{2})\/(\d{2})\s+(\d{1,2}):(\d{2})\s+(am|pm)$/i);
+  if (!match) return null;
+  const [, month, day, shortYear, rawHour, minute, meridiem] = match;
+  let hour = Number(rawHour) % 12;
+  if (meridiem.toLowerCase() === 'pm') hour += 12;
+  const localAsUtc = Date.UTC(2000 + Number(shortYear), Number(month) - 1, Number(day), hour, Number(minute));
+  let epoch = localAsUtc - easternOffsetMilliseconds(localAsUtc);
+  epoch = localAsUtc - easternOffsetMilliseconds(epoch);
+  return Math.floor(epoch / 1000);
+}
+
+function parseScheduledArrivals(payload, stop) {
+  const now = Math.floor(Date.now() / 1000);
+  const entries = payload?.[stop.route] || [];
+  return entries
+    .map((entry) => ({
+      arrivalEpoch: parseEasternScheduleTime(entry.DateCalender),
+      tripId: String(entry.trip_id || ''),
+      vehicleId: null,
+      destination: entry.DirectionDesc || `Route ${stop.route} destination`,
+      direction: 'Scheduled service',
+      vehicleNextStopName: null,
+      distanceMeters: null,
+      source: 'scheduled'
+    }))
+    .filter((arrival) => arrival.arrivalEpoch && arrival.arrivalEpoch >= now - 30)
+    .sort((a, b) => a.arrivalEpoch - b.arrivalEpoch);
+}
+
 module.exports = async (_request, response) => {
   try {
-    const [tripResponse, ...vehicleResponses] = await Promise.all([
-      fetch('https://www3.septa.org/gtfsrt/septa-pa-us/Trip/rtTripUpdates.pb'),
-      ...ROUTE_STOPS.map((stop) => fetch(`https://www3.septa.org/api/TransitView/index.php?route=${stop.route}`))
+    const [tripBuffer, vehicleData, scheduleData] = await Promise.all([
+      fetchWithRetry('https://www3.septa.org/gtfsrt/septa-pa-us/Trip/rtTripUpdates.pb')
+        .then((result) => result.arrayBuffer())
+        .catch(() => null),
+      Promise.all(ROUTE_STOPS.map((stop) =>
+        fetchWithRetry(`https://www3.septa.org/api/TransitView/index.php?route=${stop.route}`)
+          .then((result) => result.json())
+          .catch(() => null))),
+      Promise.all(ROUTE_STOPS.map((stop) =>
+        fetchBusSchedule(stop.id)
+          .catch(() => null)))
     ]);
-    if (!tripResponse.ok || vehicleResponses.some((item) => !item.ok)) {
-      throw new Error('SEPTA did not return live data');
-    }
+    if (!tripBuffer && scheduleData.every((item) => !item)) throw new Error('SEPTA did not return arrival data');
 
-    const predictions = parsePredictions(await tripResponse.arrayBuffer());
-    const vehicleData = await Promise.all(vehicleResponses.map((item) => item.json()));
+    const predictions = tripBuffer ? parsePredictions(tripBuffer) : [];
     const vehiclesByRoute = new Map(ROUTE_STOPS.map((stop, index) => [
       stop.route,
-      vehicleData[index].bus || []
+      vehicleData[index]?.bus || []
     ]));
-    const routes = ROUTE_STOPS.map((stop) => {
-      const arrivals = predictions
+    const routes = ROUTE_STOPS.map((stop, index) => {
+      const realtimeArrivals = predictions
         .filter((prediction) => prediction.stop.id === stop.id)
-        .slice(0, 2)
         .map((prediction) => {
           const vehicles = vehiclesByRoute.get(stop.route) || [];
           const vehicle = vehicles.find((item) => String(item.VehicleID) === String(prediction.vehicleId));
@@ -166,10 +257,37 @@ module.exports = async (_request, response) => {
             vehicleNextStopName: vehicle?.next_stop_name || null,
             distanceMeters: Number.isFinite(lat) && Number.isFinite(lng)
               ? distanceMeters(lat, lng, stop.lat, stop.lng)
-              : null
+              : null,
+            source: 'realtime'
           };
         });
-      return { ...stop, arrivals };
+      const scheduledArrivals = parseScheduledArrivals(scheduleData[index], stop);
+      const arrivals = [...realtimeArrivals];
+      const matchedScheduleIndexes = new Set();
+      realtimeArrivals.forEach((realtime) => {
+        let closestIndex = -1;
+        let closestDifference = Infinity;
+        scheduledArrivals.forEach((scheduled, scheduledIndex) => {
+          if (matchedScheduleIndexes.has(scheduledIndex)) return;
+          const difference = Math.abs(realtime.arrivalEpoch - scheduled.arrivalEpoch);
+          if (difference < closestDifference) {
+            closestDifference = difference;
+            closestIndex = scheduledIndex;
+          }
+        });
+        if (closestIndex >= 0 && closestDifference < 480) matchedScheduleIndexes.add(closestIndex);
+      });
+      scheduledArrivals.forEach((scheduled, scheduledIndex) => {
+        if (!matchedScheduleIndexes.has(scheduledIndex)) arrivals.push(scheduled);
+      });
+      arrivals.sort((a, b) => a.arrivalEpoch - b.arrivalEpoch);
+      return {
+        ...stop,
+        realtimeFeedAvailable: Boolean(tripBuffer),
+        scheduleAvailable: Boolean(scheduleData[index]),
+        arrivalDataAvailable: Boolean(scheduleData[index]) || realtimeArrivals.length > 0,
+        arrivals: arrivals.slice(0, 2)
+      };
     });
 
     response.setHeader('Cache-Control', 'no-store, max-age=0');

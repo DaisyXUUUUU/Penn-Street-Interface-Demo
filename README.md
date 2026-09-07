@@ -22,6 +22,7 @@ Then open [http://127.0.0.1:4173](http://127.0.0.1:4173).
 
 - No API key is required.
 - `api/septa-arrivals.js` reads SEPTA's public GTFS-realtime Trip Updates feed for the next two predictions on each route, and SEPTA TransitView for Route 21 and Route 40 vehicle locations.
+- When a future trip has not entered the realtime feed yet, SEPTA BusSchedules fills the remaining arrival slots. The interface labels these times as scheduled and hides the vehicle icon until GPS-backed data is available.
 - Previous and next stops come from SEPTA's static GTFS route sequence for the matching route, direction, and stop ID. TransitView's vehicle-level `next_stop_name` is kept separate because it describes the vehicle's current next stop, not necessarily the stop after this display.
 - The browser calls the same-site endpoint `/api/septa-arrivals` every 5 seconds. This server-side relay avoids the browser cross-origin restriction on SEPTA's public feeds.
 - Arrival countdowns use real time. The vehicle icon moves toward `YOUR STOP` according to the latest reported vehicle distance.
