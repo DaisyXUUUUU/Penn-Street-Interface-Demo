@@ -34,6 +34,7 @@ Then open [http://127.0.0.1:4173](http://127.0.0.1:4173).
 - The live route card presents the route number, stop, vehicle status, destination, and the next two predicted arrivals.
 - Use the bottom left and right controls to switch between Routes 21 and 40. The partial cards preview the adjacent route.
 - Tap **Enable gestures** on the deployed HTTPS page to start optional, on-device camera controls. Moving the thumb and index finger apart zooms in; moving them together zooms out. Pointing left selects the next route, and pointing right selects the previous route.
+- Hold a C-shaped hand for about one second to speak the selected route, destination, and next arrival once. Hold a fist to pause zooming and route switching; controls resume after the fist is released. Hold an open palm to toggle a two-route overview.
 - Camera frames are processed locally in the browser by MediaPipe Hand Landmarker and are not uploaded by this project. Mouse/touch route buttons remain available as a fallback.
 - The first bus moves from left to right along its progress line toward `YOUR STOP`, synchronized to its live vehicle location.
 - The full arrival/progress card changes colour based on the first bus's remaining time:
@@ -51,6 +52,9 @@ Then open [http://127.0.0.1:4173](http://127.0.0.1:4173).
 ├── script.js                     # Live-data UI, countdowns, vehicle progress, and alerts
 ├── gesture-controls.js           # Isolated camera, landmark, and gesture logic
 ├── gesture-controls.css          # Camera-control panel and feedback styles
+├── voice-announcer.js            # One-shot browser speech synthesis
+├── route-overview.js             # Event-driven two-route overview
+├── route-overview.css            # Overview presentation styles
 ├── api/
 │   └── septa-arrivals.js         # Vercel endpoint that reads SEPTA live feeds
 ├── assets/

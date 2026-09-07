@@ -1,0 +1,112 @@
+.route-overview {
+  position: absolute;
+  z-index: 17;
+  inset: 0;
+  padding: 24px 34px 28px;
+  background: #edf4fbf7;
+  backdrop-filter: blur(8px);
+  color: #172331;
+}
+
+.route-overview[hidden] { display: none; }
+
+.overview-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 18px;
+}
+
+.overview-header h2 {
+  margin: 0;
+  color: #0d469f;
+  font-size: 27px;
+}
+
+.overview-close {
+  width: 38px;
+  height: 38px;
+  border: 2px solid #0d469f;
+  border-radius: 50%;
+  background: #fff;
+  color: #0d469f;
+  font: 800 22px/1 Arial, Helvetica, sans-serif;
+}
+
+.overview-routes {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 18px;
+}
+
+.overview-card {
+  min-width: 0;
+  padding: 22px;
+  border: 2px solid #c2d1e1;
+  border-radius: 14px;
+  background: #fff;
+  box-shadow: 0 5px 16px #153d6b1a;
+}
+
+.overview-route-number {
+  color: #111;
+  font-size: 78px;
+  font-weight: 800;
+  line-height: .85;
+  letter-spacing: -4px;
+}
+
+.overview-destination {
+  min-height: 42px;
+  margin: 15px 0 18px;
+  color: #0d469f;
+  font-size: 17px;
+  font-weight: 800;
+  line-height: 1.15;
+}
+
+.overview-times {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.overview-time {
+  padding: 10px 8px;
+  border-radius: 8px;
+  background: #eaf3fb;
+  text-align: center;
+}
+
+.overview-time span,
+.overview-time small { display: block; }
+.overview-time span { color: #566879; font-size: 10px; font-weight: 800; text-transform: uppercase; }
+.overview-time strong { color: #111; font-size: 28px; }
+.overview-time small { margin-top: 3px; color: #647381; font-size: 9px; font-weight: 700; }
+
+.overview-stop-sequence {
+  margin: 17px 0 0;
+  color: #536270;
+  font-size: 11px;
+  line-height: 1.45;
+}
+
+.overview-hint {
+  margin: 18px 0 0;
+  color: #647381;
+  font-size: 11px;
+  font-weight: 700;
+  text-align: center;
+}
+
+@media (max-width: 480px) {
+  .route-overview { padding: 18px 16px; }
+  .overview-header { margin-bottom: 12px; }
+  .overview-header h2 { font-size: 21px; }
+  .overview-routes { gap: 8px; }
+  .overview-card { padding: 14px 10px; }
+  .overview-route-number { font-size: 54px; }
+  .overview-destination { min-height: 38px; margin: 10px 0; font-size: 13px; }
+  .overview-time strong { font-size: 22px; }
+  .overview-stop-sequence { font-size: 9px; }
+}

@@ -21,6 +21,12 @@ const state = {
   zoomBaseline: 1,
   zoom: 1,
   pointLatched: false,
+  poseCandidate: null,
+  poseStartedAt: 0,
+  poseLatched: false,
+  frozen: false,
+  fistFrames: 0,
+  fistReleaseFrames: 0,
   noHandFrames: 0,
   feedbackTimer: null
 };
@@ -35,7 +41,7 @@ function createControls() {
     <section class="gesture-panel" hidden>
       <video class="gesture-video" muted playsinline aria-label="Mirrored camera preview"></video>
       <p class="gesture-status" aria-live="polite">Camera off</p>
-      <p class="gesture-help">Pinch to zoom · point left/right to switch routes</p>
+      <p class="gesture-help">Pinch: zoom · point: routes · C: speak · fist: hold · open palm: overview</p>
       <button class="gesture-stop" type="button">Turn camera off</button>
     </section>
     <button class="gesture-toggle" type="button" aria-pressed="false">Enable gestures</button>
@@ -95,6 +101,7 @@ async function start() {
   elements.toggle.textContent = 'Starting camera…';
   elements.panel.hidden = false;
   setStatus('Requesting camera permission…');
+  window.dispatchEvent(new CustomEvent('busstop:voice-unlock'));
   try {
     if (!window.isSecureContext || !navigator.mediaDevices?.getUserMedia) {
       throw new Error('Camera gestures require the HTTPS Vercel page.');
@@ -152,6 +159,12 @@ function stop() {
 function resetGestureState() {
   state.pinchBaseline = null;
   state.pointLatched = false;
+  state.poseCandidate = null;
+  state.poseStartedAt = 0;
+  state.poseLatched = false;
+  state.frozen = false;
+  state.fistFrames = 0;
+  state.fistReleaseFrames = 0;
   state.noHandFrames = 0;
 }
 
@@ -170,20 +183,107 @@ function dispatchZoom(scale) {
   setStatus(`Zoom ${Math.round(state.zoom * 100)}%`);
 }
 
+function fingerExtended(landmarks, tip, pip, mcp, wrist) {
+  return distance(landmarks[tip], wrist) > distance(landmarks[pip], wrist) * 1.12
+    && distance(landmarks[tip], landmarks[mcp]) > distance(landmarks[pip], landmarks[mcp]) * 1.08;
+}
+
+function holdPose(name, duration, onReady) {
+  const now = performance.now();
+  if (state.poseCandidate !== name) {
+    state.poseCandidate = name;
+    state.poseStartedAt = now;
+    state.poseLatched = false;
+  }
+  if (!state.poseLatched && now - state.poseStartedAt >= duration) {
+    state.poseLatched = true;
+    onReady();
+  }
+}
+
+function clearHeldPose() {
+  state.poseCandidate = null;
+  state.poseStartedAt = 0;
+  state.poseLatched = false;
+}
+
 function analyzeHand(landmarks) {
   const wrist = landmarks[0];
   const thumbTip = landmarks[4];
   const indexMcp = landmarks[5];
   const indexTip = landmarks[8];
   const middleMcp = landmarks[9];
+  const palmSize = Math.max(distance(wrist, middleMcp), 0.05);
+  const fingerJoints = [
+    [8, 6, 5],
+    [12, 10, 9],
+    [16, 14, 13],
+    [20, 18, 17]
+  ];
+  const extended = fingerJoints.map(([tip, pip, mcp]) =>
+    fingerExtended(landmarks, tip, pip, mcp, wrist));
+  const folded = fingerJoints.map(([tip, pip]) =>
+    distance(landmarks[tip], wrist) < distance(landmarks[pip], wrist) * 1.08);
+  const extendedCount = extended.filter(Boolean).length;
+  const foldedCount = folded.filter(Boolean).length;
+  const normalizedPinch = distance(thumbTip, indexTip) / palmSize;
+  const thumbSpread = distance(thumbTip, indexMcp) / palmSize;
   const screenDx = -(indexTip.x - indexMcp.x);
   const screenDy = indexTip.y - indexMcp.y;
   const isHorizontalPoint = Math.abs(screenDx) > CONFIG.pointThreshold
     && Math.abs(screenDx) > Math.abs(screenDy) * 1.25
     && distance(indexTip, wrist) > distance(indexMcp, wrist) * 1.35;
+  const isFist = foldedCount >= 3 && thumbSpread < 1.15;
+  const isOpenPalm = extendedCount === 4 && normalizedPinch > 0.55;
+  const curvedFingerCount = fingerJoints.filter(([tip, pip, mcp]) => {
+    const reach = distance(landmarks[tip], landmarks[mcp]) / palmSize;
+    const curl = distance(landmarks[tip], wrist) / Math.max(distance(landmarks[pip], wrist), 0.02);
+    return reach > 0.38 && curl < 1.28;
+  }).length;
+  const isCShape = !isOpenPalm && !isFist && !isHorizontalPoint
+    && normalizedPinch > 0.42 && normalizedPinch < 1.25
+    && curvedFingerCount >= 3;
+
+  if (isFist) {
+    state.fistFrames += 1;
+    state.fistReleaseFrames = 0;
+    state.pinchBaseline = null;
+    clearHeldPose();
+    if (state.fistFrames >= 3 && !state.frozen) {
+      state.frozen = true;
+      showFeedback('Controls held');
+    }
+    setStatus('Fist detected · controls held');
+    return;
+  }
+
+  state.fistFrames = 0;
+  if (state.frozen) {
+    state.fistReleaseFrames += 1;
+    if (state.fistReleaseFrames < 4) return;
+    state.frozen = false;
+    state.fistReleaseFrames = 0;
+    state.pinchBaseline = null;
+    showFeedback('Controls resumed');
+    setStatus('Controls resumed');
+    return;
+  }
+
+  if (isOpenPalm) {
+    state.pinchBaseline = null;
+    state.pointLatched = false;
+    setStatus('Hold open palm for route overview');
+    holdPose('open-palm', 650, () => {
+      window.dispatchEvent(new CustomEvent('busstop:overview-toggle'));
+      showFeedback('Route overview');
+      setStatus('Open palm detected');
+    });
+    return;
+  }
 
   if (isHorizontalPoint) {
     state.pinchBaseline = null;
+    clearHeldPose();
     if (!state.pointLatched) {
       state.pointLatched = true;
       dispatchRoute(screenDx < 0 ? 'next' : 'previous');
@@ -193,8 +293,18 @@ function analyzeHand(landmarks) {
   }
 
   state.pointLatched = false;
-  const palmSize = Math.max(distance(wrist, middleMcp), 0.05);
-  const normalizedPinch = distance(thumbTip, indexTip) / palmSize;
+  if (isCShape) {
+    state.pinchBaseline = null;
+    setStatus('Hold C shape to hear this route');
+    holdPose('c-shape', 850, () => {
+      window.dispatchEvent(new CustomEvent('busstop:announce-request'));
+      showFeedback('Speaking once');
+      setStatus('C shape detected · speaking');
+    });
+    return;
+  }
+
+  clearHeldPose();
   if (state.pinchBaseline === null) {
     state.pinchBaseline = normalizedPinch;
     state.zoomBaseline = state.zoom;
@@ -223,8 +333,7 @@ function processFrame(timestamp) {
       } else {
         state.noHandFrames += 1;
         if (state.noHandFrames > 5) {
-          state.pinchBaseline = null;
-          state.pointLatched = false;
+          resetGestureState();
           setStatus('Show one hand to the camera');
         }
       }

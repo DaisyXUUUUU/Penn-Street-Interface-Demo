@@ -188,6 +188,7 @@ async function loadLiveData() {
     }
     liveData = nextData;
     renderSelectedRoute();
+    broadcastInterfaceData();
   } catch (error) {
     if (!liveData) {
       renderSelectedRoute();
@@ -203,11 +204,31 @@ async function loadLiveData() {
 function switchRoute(step) {
   routeIndex = (routeIndex + step + ROUTE_STOPS.length) % ROUTE_STOPS.length;
   renderSelectedRoute(step > 0 ? 'slide-left' : 'slide-right');
+  broadcastInterfaceData();
 }
 
 function setInterfaceZoom(scale) {
   const safeScale = Math.max(0.85, Math.min(1.18, Number(scale) || 1));
   document.documentElement.style.setProperty('--interface-scale', safeScale.toFixed(3));
+}
+
+function broadcastInterfaceData() {
+  if (!liveData) return;
+  window.dispatchEvent(new CustomEvent('busstop:data-updated', {
+    detail: { routes: liveData.routes, selectedRoute: selectedRoute().route }
+  }));
+}
+
+function createRouteAnnouncement(route) {
+  const first = route.arrivals?.[0];
+  if (!first) {
+    return `Route ${route.route}. No upcoming arrival information is currently available.`;
+  }
+  const remainingSeconds = Math.max(0, first.arrivalEpoch - Date.now() / 1000);
+  const minutes = Math.ceil(remainingSeconds / 60);
+  const arrivalPhrase = minutes <= 1 ? 'in less than one minute' : `in ${minutes} minutes`;
+  const timing = first.source === 'scheduled' ? 'is scheduled to arrive' : 'is expected to arrive';
+  return `Route ${route.route}, toward ${first.destination}. The next bus ${timing} ${arrivalPhrase}.`;
 }
 
 previousButton.addEventListener('click', () => switchRoute(-1));
@@ -218,6 +239,13 @@ window.addEventListener('busstop:route-change', (event) => {
 window.addEventListener('busstop:zoom', (event) => {
   setInterfaceZoom(event.detail?.scale);
 });
+window.addEventListener('busstop:announce-request', () => {
+  const route = selectedRoute();
+  window.dispatchEvent(new CustomEvent('busstop:announce', {
+    detail: { text: createRouteAnnouncement(route) }
+  }));
+});
+window.addEventListener('busstop:data-request', broadcastInterfaceData);
 document.addEventListener('visibilitychange', () => {
   if (!document.hidden) loadLiveData();
 });
