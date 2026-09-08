@@ -33,7 +33,7 @@ Then open [http://127.0.0.1:4173](http://127.0.0.1:4173).
 - Portrait iPad layout with a SEPTA information header, route cards, and a Stop ID footer.
 - The live route card presents the route number, stop, vehicle status, destination, and the next two predicted arrivals.
 - Use the bottom left and right controls to switch between Routes 21 and 40. The partial cards preview the adjacent route.
-- Tap **Enable gestures** on the deployed HTTPS page to start optional, on-device camera controls. Move the thumb and index finger apart or together to zoom. Use thumbs up for the next route and thumbs down for the previous route.
+- Tap **Enable gestures** on the deployed HTTPS page to start optional, on-device camera controls. Move the thumb and index finger apart or together to zoom. Point the index finger left for the next route or right for the previous route.
 - Show a V sign to speak the selected route, destination, and next arrival once. Hold a fist to pause gesture controls; release it to resume. Show an open palm to toggle the two-route overview.
 - Camera frames are processed locally in the browser by MediaPipe Gesture Recognizer and are not uploaded by this project. Mouse/touch route buttons remain available as a fallback.
 - The first bus moves from left to right along its progress line toward `YOUR STOP`, synchronized to its live vehicle location.

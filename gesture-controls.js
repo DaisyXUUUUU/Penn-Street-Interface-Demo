@@ -12,8 +12,8 @@ const CONFIG = {
 const COMMANDS = {
   Victory: { label: 'Victory · speak once', event: 'busstop:announce-request' },
   Open_Palm: { label: 'Open palm · route overview', event: 'busstop:overview-toggle' },
-  Thumb_Up: { label: 'Thumb up · next route', event: 'busstop:route-change', detail: { direction: 'next' } },
-  Thumb_Down: { label: 'Thumb down · previous route', event: 'busstop:route-change', detail: { direction: 'previous' } }
+  Point_Left: { label: 'Point left · next route', event: 'busstop:route-change', detail: { direction: 'next' } },
+  Point_Right: { label: 'Point right · previous route', event: 'busstop:route-change', detail: { direction: 'previous' } }
 };
 
 const state = {
@@ -49,7 +49,7 @@ function createControls() {
     <section class="gesture-panel" hidden>
       <video class="gesture-video" muted playsinline aria-label="Mirrored camera preview"></video>
       <p class="gesture-status" aria-live="polite">Camera off</p>
-      <p class="gesture-help">V: speak · fist: hold · palm: overview · thumbs: routes · pinch: zoom</p>
+      <p class="gesture-help">V: speak · fist: hold · palm: overview · point left/right: routes · pinch: zoom</p>
       <button class="gesture-stop" type="button">Turn camera off</button>
     </section>
     <button class="gesture-toggle" type="button" aria-pressed="false">Enable gestures</button>
@@ -179,6 +179,48 @@ function distance(a, b) {
   return Math.hypot(a.x - b.x, a.y - b.y);
 }
 
+function jointAngle(a, joint, b) {
+  const first = { x: a.x - joint.x, y: a.y - joint.y };
+  const second = { x: b.x - joint.x, y: b.y - joint.y };
+  const denominator = Math.hypot(first.x, first.y) * Math.hypot(second.x, second.y);
+  if (denominator < 0.0001) return 0;
+  const cosine = Math.max(-1, Math.min(1, (first.x * second.x + first.y * second.y) / denominator));
+  return Math.acos(cosine) * (180 / Math.PI);
+}
+
+function fingerIsFolded(landmarks, mcpIndex, pipIndex, tipIndex) {
+  const wrist = landmarks[0];
+  const angle = jointAngle(landmarks[mcpIndex], landmarks[pipIndex], landmarks[tipIndex]);
+  const tipNearPalm = distance(landmarks[tipIndex], wrist)
+    < distance(landmarks[pipIndex], wrist) * 1.08;
+  return angle < 145 || tipNearPalm;
+}
+
+function detectHorizontalPoint(landmarks) {
+  if (!landmarks?.[8]) return null;
+
+  const palmSize = Math.max(distance(landmarks[0], landmarks[9]), 0.05);
+  const indexAngle = jointAngle(landmarks[5], landmarks[6], landmarks[8]);
+  const rawDx = landmarks[8].x - landmarks[5].x;
+  const dy = landmarks[8].y - landmarks[5].y;
+  const screenDx = -rawDx; // The camera preview is mirrored for natural interaction.
+  const indexLength = distance(landmarks[5], landmarks[8]);
+  const foldedFingerCount = [
+    fingerIsFolded(landmarks, 9, 10, 12),
+    fingerIsFolded(landmarks, 13, 14, 16),
+    fingerIsFolded(landmarks, 17, 18, 20)
+  ].filter(Boolean).length;
+
+  const isClearPoint = indexAngle > 152
+    && indexLength > palmSize * 0.72
+    && Math.abs(screenDx) > Math.abs(dy) * 1.45
+    && Math.abs(screenDx) > palmSize * 0.55
+    && foldedFingerCount >= 2;
+
+  if (!isClearPoint) return null;
+  return screenDx < 0 ? 'Point_Left' : 'Point_Right';
+}
+
 function updateStableGesture(name) {
   if (name === state.stableName) state.stableCount += 1;
   else {
@@ -220,8 +262,10 @@ function updateZoom(landmarks) {
 
 function handleRecognition(result) {
   const category = result.gestures?.[0]?.[0];
-  const name = category?.score >= CONFIG.minGestureScore ? category.categoryName : 'None';
   const landmarks = result.landmarks?.[0];
+  const standardName = category?.score >= CONFIG.minGestureScore ? category.categoryName : 'None';
+  const horizontalPoint = detectHorizontalPoint(landmarks);
+  const name = horizontalPoint || standardName;
   updateStableGesture(name || 'None');
 
   if (state.frozen) {
