@@ -1,17 +1,40 @@
 const ROUTE_STOPS = [
-  { id: '622', route: '21', name: 'Chestnut St & 38th St' },
-  { id: '22285', route: '40', name: '38th St & Chestnut St' }
+  {
+    id: '22285',
+    route: '40',
+    name: '38th St & Chestnut St',
+    direction: 'Westbound',
+    destination: 'Conshohocken-Monument',
+    previousStop: 'Chestnut St & 39th St',
+    nextStop: 'Chestnut St & 37th St'
+  },
+  {
+    id: '22285',
+    route: '79',
+    name: '38th St & Chestnut St',
+    direction: 'Westbound',
+    destination: 'Market & 41st ST',
+    previousStop: '38th St & Walnut St',
+    nextStop: 'Market St & 38th St - FS'
+  }
 ];
 const POLL_INTERVAL_MS = 5_000;
-const PROGRESS_DISTANCE_METERS = 1_600;
+const VISUAL_APPROACH_WINDOW_SECONDS = 1_800;
+const ALERT_STORAGE_KEY = 'busstop:shown-arrival-alerts';
 
 const routePanel = document.querySelector('.route-panel');
 const routeNumber = document.querySelector('#route-number');
-const previousStop = document.querySelector('#previous-stop');
+const routeDirection = document.querySelector('#route-direction');
+const routeDestination = document.querySelector('#route-destination');
 const firstTime = document.querySelector('#first-time');
 const secondTime = document.querySelector('#second-time');
+const firstService = document.querySelector('#first-service');
+const lastService = document.querySelector('#last-service');
+const lastServiceNote = document.querySelector('#last-service-note');
 const arrivalCard = document.querySelector('.arrival-card');
 const arrivalCaption = document.querySelector('.arrival-card > p');
+const arrivalStatusLabel = document.querySelector('.arrival-status-label');
+const liveIndicator = document.querySelector('.live-indicator');
 const journeyLabel = document.querySelector('.journey-label');
 const vehicle = document.querySelector('.vehicle');
 const progress = document.querySelector('.track-progress');
@@ -20,6 +43,9 @@ const previousPeek = document.querySelector('.route-peek--previous span');
 const nextPeek = document.querySelector('.route-peek--next span');
 const previousButton = document.querySelector('.route-switch.previous');
 const nextButton = document.querySelector('.route-switch.next');
+const sidePreviousButton = document.querySelector('.route-side-switch.previous');
+const sideNextButton = document.querySelector('.route-side-switch.next');
+const routeDots = [...document.querySelectorAll('.route-dots i')];
 const arrivalAlert = document.querySelector('#arrival-alert');
 const alertKicker = document.querySelector('#alert-kicker');
 const alertRoute = document.querySelector('#alert-route');
@@ -27,11 +53,29 @@ const alertDirection = document.querySelector('#alert-direction');
 const alertMessage = document.querySelector('#alert-message');
 
 let liveData = null;
-let routeIndex = 0;
+let routeIndex = 1;
 let isLoading = false;
 let alertTimer = null;
-const alertKeys = new Set();
+const alertKeys = loadAlertKeys();
 const previousRemaining = new Map();
+
+function loadAlertKeys() {
+  try {
+    const stored = JSON.parse(sessionStorage.getItem(ALERT_STORAGE_KEY) || '[]');
+    return new Set(Array.isArray(stored) ? stored : []);
+  } catch (_error) {
+    return new Set();
+  }
+}
+
+function rememberAlertKey(key) {
+  alertKeys.add(key);
+  try {
+    sessionStorage.setItem(ALERT_STORAGE_KEY, JSON.stringify([...alertKeys].slice(-80)));
+  } catch (_error) {
+    // The in-memory set still prevents repeated alerts if storage is unavailable.
+  }
+}
 
 function selectedRoute() {
   const selectedId = ROUTE_STOPS[routeIndex].route;
@@ -57,29 +101,43 @@ function updateFirstBusStatus(remaining) {
 
 function renderStopDetails(route) {
   const first = route.arrivals?.[0];
-  const final = first?.destination || `Route ${route.route} destination`;
+  const final = first?.destination || route.destination || `Route ${route.route} destination`;
+  const previous = route.previousStop || 'Previous stop information loading';
   const nextStop = route.nextStop || 'Loading official stop sequence…';
-  const vehicleDetails = first?.vehicleId
-    ? `Live vehicle ${first.vehicleId}`
-    : first ? 'Scheduled · live GPS pending' : 'Waiting for SEPTA data';
+  const direction = first?.direction || route.direction || `Route ${route.route} service`;
   stops.innerHTML = `
+    <div class="stop previous-stop-row"><span class="dot"></span><div><h3>${previous}</h3></div></div>
     <div class="stop current"><span class="dot"></span><div><h2>${route.name}</h2><label>You are here</label></div></div>
-    <div class="stop"><span class="dot"></span><div><h3>${nextStop}</h3><p>Next stop · ${vehicleDetails}</p></div></div>
-    <div class="stop final"><span class="dot"></span><div><h3><span class="final-badge">To</span><span>${final}</span></h3><p>${first?.direction || `Route ${route.route} live service`}</p></div></div>`;
+    <div class="stop"><span class="dot"></span><div><h3>${nextStop}</h3><p>Next stop</p></div></div>
+    <div class="stop final"><span class="dot"></span><div><h3><span class="final-badge">To</span><span>${final}</span></h3><p>${direction}</p></div></div>`;
+}
+
+function renderServiceWindow(route) {
+  const window = route.serviceWindow;
+  firstService.textContent = window?.first || '—';
+  lastService.textContent = window?.last || '—';
+  lastServiceNote.textContent = window?.lastDayOffset ? 'next day' : '';
 }
 
 function renderSelectedRoute(animationClass) {
   const route = selectedRoute();
+  const first = route.arrivals?.[0];
   routeNumber.textContent = route.route;
-  previousStop.textContent = route.previousStop || 'Loading official stop sequence…';
+  routeDirection.textContent = first?.direction || route.direction || `Route ${route.route}`;
+  routeDestination.textContent = first?.destination || route.destination || 'Destination loading';
   previousPeek.textContent = ROUTE_STOPS[(routeIndex - 1 + ROUTE_STOPS.length) % ROUTE_STOPS.length].route;
   nextPeek.textContent = ROUTE_STOPS[(routeIndex + 1) % ROUTE_STOPS.length].route;
+  routeDots.forEach((dot, index) => dot.classList.toggle('active', index === routeIndex));
   routePanel.setAttribute('aria-label', `Live information for Route ${route.route} at ${route.name}`);
+  renderServiceWindow(route);
   renderStopDetails(route);
-  const first = route.arrivals?.[0];
-  journeyLabel.textContent = first?.source === 'realtime'
-    ? 'Live vehicle location'
-    : first ? 'Scheduled arrival · GPS pending' : 'Waiting for SEPTA data';
+  const sourceLabel = first?.source === 'realtime'
+    ? 'Live arrival estimate'
+    : first?.source === 'scheduled' ? 'Scheduled arrival' : 'Arrival information';
+  arrivalStatusLabel.textContent = sourceLabel;
+  journeyLabel.hidden = true;
+  liveIndicator.hidden = first?.source !== 'realtime';
+  journeyLabel.textContent = '';
   updateArrivalCaption(route);
   if (animationClass) {
     routePanel.classList.remove('slide-left', 'slide-right');
@@ -102,29 +160,54 @@ function updateArrivalCaption(route) {
   const sources = new Set(route.arrivals?.map((arrival) => arrival.source));
   const status = sources.has('realtime')
     ? (sources.has('scheduled') ? 'Live + scheduled SEPTA arrivals' : 'Live SEPTA predictions')
-    : 'Official SEPTA schedule · checking live data';
+    : 'Scheduled arrivals · checking live data';
   arrivalCaption.innerHTML = `<i></i> ${status} · updated every 5 sec`;
 }
 
-function showArrivalAlert(type, busNumber, route, destination) {
+function spokenPlaceName(value) {
+  return String(value || '').replaceAll('&', 'and').replaceAll('-', ' ');
+}
+
+function showArrivalAlert(type, busNumber, route, arrival) {
+  const destination = arrival.destination || `Route ${route} destination`;
+  const direction = arrival.direction ? `${arrival.direction} · ` : '';
   clearTimeout(alertTimer);
   arrivalAlert.classList.toggle('critical', type === 'critical');
   alertKicker.textContent = type === 'critical' ? 'Arrival imminent' : 'Last minute alert';
   alertRoute.textContent = `Route ${route} · Bus ${busNumber}`;
-  alertDirection.textContent = `To ${destination || `Route ${route} destination`}`;
+  alertDirection.textContent = `${direction}To ${destination}`;
   alertMessage.textContent = type === 'critical' ? 'Arriving in 10 seconds' : 'Arriving in 1 minute';
   arrivalAlert.hidden = false;
   alertTimer = setTimeout(() => { arrivalAlert.hidden = true; }, 5000);
+
+  const spokenTiming = type === 'critical' ? 'ten seconds' : 'one minute';
+  const spokenDirection = arrival.direction ? `${arrival.direction.toLowerCase()} toward ` : 'toward ';
+  const text = `Route ${route}, ${spokenDirection}${spokenPlaceName(destination)}, will arrive in ${spokenTiming}. Please get ready.`;
+  window.setTimeout(() => {
+    window.dispatchEvent(new CustomEvent('busstop:announce', { detail: { text, interrupt: true } }));
+  }, 0);
+}
+
+function arrivalDateKey(epoch) {
+  const parts = new Intl.DateTimeFormat('en-US', {
+    timeZone: 'America/New_York',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit'
+  }).formatToParts(new Date(epoch * 1000));
+  const values = Object.fromEntries(parts.filter((part) => part.type !== 'literal').map((part) => [part.type, part.value]));
+  return `${values.year}-${values.month}-${values.day}`;
 }
 
 function checkArrivalThreshold(busNumber, route, arrival, remaining) {
-  const arrivalId = `${route}-${arrival.vehicleId || 'trip'}-${arrival.arrivalEpoch}`;
+  const fallbackId = `${arrival.vehicleId || 'vehicle'}-${Math.round(arrival.arrivalEpoch / 900)}`;
+  const arrivalId = `${arrivalDateKey(arrival.arrivalEpoch)}-${route}-${arrival.tripId || fallbackId}`;
   const prior = previousRemaining.get(arrivalId) ?? Infinity;
   [{ seconds: 60, type: 'warning' }, { seconds: 10, type: 'critical' }].forEach(({ seconds, type }) => {
     const key = `${arrivalId}-${type}`;
     if (!alertKeys.has(key) && prior > seconds && remaining <= seconds && remaining > 0) {
-      alertKeys.add(key);
-      showArrivalAlert(type, busNumber, route, arrival.destination);
+      rememberAlertKey(key);
+      showArrivalAlert(type, busNumber, route, arrival);
     }
   });
   previousRemaining.set(arrivalId, remaining);
@@ -146,14 +229,15 @@ function updateInterface() {
   if (first?.source === 'realtime') checkArrivalThreshold(1, route.route, first, firstRemaining);
   if (second?.source === 'realtime') checkArrivalThreshold(2, route.route, second, secondRemaining);
 
-  const distance = first?.distanceMeters;
-  const travelProgress = Number.isFinite(distance)
-    ? Math.max(0, Math.min(1, 1 - distance / PROGRESS_DISTANCE_METERS))
+  const hasLivePrediction = first?.source === 'realtime' && Number.isFinite(firstRemaining);
+  const etaProgress = Number.isFinite(firstRemaining)
+    ? Math.max(0, Math.min(1, 1 - firstRemaining / VISUAL_APPROACH_WINDOW_SECONDS))
     : 0;
-  const position = 16 + travelProgress * 66;
-  vehicle.hidden = !Number.isFinite(distance);
+  const position = 16 + etaProgress * 66;
+  vehicle.hidden = !hasLivePrediction;
+  vehicle.classList.toggle('estimated', hasLivePrediction);
   vehicle.style.left = `${position}%`;
-  progress.style.width = Number.isFinite(distance) ? `${position}%` : '0%';
+  progress.style.width = hasLivePrediction ? `${position}%` : '0%';
   requestAnimationFrame(updateInterface);
 }
 
@@ -233,6 +317,8 @@ function createRouteAnnouncement(route) {
 
 previousButton.addEventListener('click', () => switchRoute(-1));
 nextButton.addEventListener('click', () => switchRoute(1));
+sidePreviousButton.addEventListener('click', () => switchRoute(-1));
+sideNextButton.addEventListener('click', () => switchRoute(1));
 window.addEventListener('busstop:route-change', (event) => {
   switchRoute(event.detail?.direction === 'previous' ? -1 : 1);
 });

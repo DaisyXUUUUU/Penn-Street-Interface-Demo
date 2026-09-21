@@ -3,63 +3,117 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
-    <meta name="theme-color" content="#0e469f" />
+    <meta name="theme-color" content="#0b469e" />
     <title>SEPTA Bus Stop</title>
     <link rel="stylesheet" href="styles.css" />
     <link rel="stylesheet" href="gesture-controls.css" />
     <link rel="stylesheet" href="route-overview.css" />
+    <link rel="stylesheet" href="kindness-tree.css?v=done-tree-20260921c" />
   </head>
   <body>
     <main class="kiosk-shell" aria-label="SEPTA bus stop arrival screen">
       <header class="topbar" aria-label="SEPTA contact information">
-        <img src="assets/header-strip-cropped.png" alt="SEPTA · www.septa.org · 215-580-7800 · TDD/TTY: 215-580-7853" />
+        <div class="brand-art"><img src="assets/SPETA.png" alt="SEPTA bus" /></div>
+        <div class="contact-details">
+          <strong>www.septa.org</strong>
+          <span>215-580-7800</span>
+          <span>TDD/TTY: 215-580-7853</span>
+        </div>
       </header>
 
       <div class="screen-body">
-      <div class="route-carousel">
-      <aside class="route-peek route-peek--previous" aria-hidden="true"><span></span></aside>
-      <section class="route-panel" aria-label="Route 124 information">
-      <section class="content">
-        <div class="route-row">
-          <div><div class="route-number" id="route-number">124</div><p class="eyebrow">Previous stop</p><h1 id="previous-stop">Girard Ave &amp; 33rd St</h1></div>
+        <div class="route-carousel">
+          <aside class="route-peek route-peek--previous">
+            <span aria-hidden="true"></span><button class="route-side-switch previous" aria-label="Previous route">‹</button>
+          </aside>
+
+          <section class="route-panel" aria-label="Route information">
+            <section class="content">
+              <div class="route-row">
+                <div class="route-number" id="route-number">79</div>
+                <div class="route-heading">
+                  <p id="route-direction">Westbound</p>
+                  <h1><span class="to-badge">To</span><span id="route-destination">Market &amp; 41st ST</span></h1>
+                </div>
+              </div>
+
+              <section class="arrival-card" aria-label="Arrival information">
+                <div class="arrival-statusline">
+                  <span class="arrival-status-label">Live arrival estimate</span>
+                  <div class="live-indicator"><i></i><span>Live</span></div>
+                </div>
+                <div class="arrival first">
+                  <strong id="first-time">—</strong>
+                  <span>1st Bus</span>
+                </div>
+                <div class="arrival second">
+                  <span>2nd Bus</span>
+                  <strong id="second-time">—</strong>
+                </div>
+                <div class="journey" aria-label="Bus approaching this stop">
+                  <span class="journey-label" hidden></span>
+                  <div class="track">
+                    <i class="track-progress"></i>
+                    <img class="vehicle" src="assets/bus-front.png" alt="Bus en route" />
+                    <i class="stop-marker"></i>
+                  </div>
+                  <span class="stop-label">Your stop</span>
+                </div>
+                <p aria-live="polite"></p>
+              </section>
+
+              <div class="info-grid">
+                <section class="stops" id="stops" aria-label="Stops on this route"></section>
+                <aside class="kindness-card" aria-label="Today's kindness tree">
+                  <span class="kindness-pill">AI for good</span>
+                  <h2>Today’s Kindness<br />Tree</h2>
+                  <p class="kindness-count" id="kindness-count" aria-live="polite">0 kind promises today</p>
+                  <div class="tree-art"><img src="assets/tree.png" alt="A flowering kindness tree" /><div class="tree-blossoms" id="home-tree-blossoms" aria-hidden="true"></div></div>
+                  <p class="kindness-prompt">Let AI suggest a kind act for you.</p>
+                  <button type="button" id="kindness-cta">Find my kind act <span>→</span></button>
+                </aside>
+              </div>
+
+              <aside class="service-window" aria-label="Today's first and last bus times">
+                <div class="service-window-header"><h2>Service hours</h2><span>Today</span></div>
+                <div class="service-window-times">
+                  <div><span>First bus</span><strong id="first-service">—</strong></div>
+                  <div><span>Last bus</span><strong id="last-service">—</strong><small id="last-service-note"></small></div>
+                </div>
+              </aside>
+            </section>
+          </section>
+
+          <aside class="route-peek route-peek--next">
+            <span aria-hidden="true"></span><button class="route-side-switch next" aria-label="Next route">›</button>
+          </aside>
         </div>
 
-        <section class="arrival-card" aria-label="Real-time arrival predictions">
-          <div class="journey" aria-label="First bus is approaching this stop">
-            <span class="journey-label">Approaching this stop</span>
-            <div class="track"><i class="track-progress"></i><i class="stop-marker"></i><i class="track-end"></i></div>
-            <img class="vehicle" src="assets/bus-front.png" alt="Bus en route" />
-            <span class="stop-label">Your stop</span>
+        <nav class="route-navigation" aria-label="Route controls">
+          <button class="route-switch previous" aria-label="Previous route">‹</button>
+          <div class="route-nav-center">
+            <div class="route-dots" aria-hidden="true"><i></i><i></i></div>
+            <span>Swipe or tap to switch routes</span>
           </div>
-          <div class="arrival-times">
-            <div class="arrival first"><span>1st Bus</span><strong id="first-time">2<small> min</small></strong></div>
-            <div class="arrival second"><span>2nd Bus</span><strong id="second-time">12<small> min</small></strong></div>
-          </div>
-          <p><i></i> Real-time arrival predictions</p>
-        </section>
+          <button class="route-switch next" aria-label="Next route">›</button>
+        </nav>
 
-        <section class="stops" id="stops" aria-label="Stops on this route"></section>
-      </section>
-      </section>
-      <aside class="route-peek route-peek--next" aria-hidden="true"><span></span></aside>
+        <aside class="arrival-alert" id="arrival-alert" aria-live="assertive" aria-atomic="true" hidden>
+          <span class="alert-kicker" id="alert-kicker"></span>
+          <strong id="alert-route"></strong>
+          <span id="alert-direction"></span>
+          <b id="alert-message"></b>
+        </aside>
       </div>
-      <nav class="route-navigation" aria-label="Route controls">
-        <button class="route-switch previous" aria-label="Previous route">‹</button>
-        <span>Click to view other routes</span>
-        <button class="route-switch next" aria-label="Next route">›</button>
-      </nav>
-      <aside class="arrival-alert" id="arrival-alert" aria-live="assertive" aria-atomic="true" hidden>
-        <span class="alert-kicker" id="alert-kicker"></span>
-        <strong id="alert-route"></strong>
-        <span id="alert-direction"></span>
-        <b id="alert-message"></b>
-      </aside>
-      </div>
-      <footer><img src="assets/footer-strip-cropped.png" alt="STOP I.D. 010101" /></footer>
+
+      <footer>STOP I.D. 010101</footer>
     </main>
     <script src="script.js"></script>
     <script src="voice-announcer.js"></script>
     <script src="route-overview.js"></script>
     <script type="module" src="gesture-controls.js"></script>
+    <script src="kindness-logic.js?v=pick-emoji-20260921"></script>
+    <script src="kindness-data.js?v=done-tree-20260921b"></script>
+    <script src="kindness-tree.js?v=done-tree-20260921b"></script>
   </body>
 </html>

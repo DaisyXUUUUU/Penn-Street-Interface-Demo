@@ -32,6 +32,9 @@
       const first = timeLabel(route.arrivals?.[0]);
       const second = timeLabel(route.arrivals?.[1]);
       const destination = route.arrivals?.[0]?.destination || `Route ${route.route} destination`;
+      const serviceWindow = route.serviceWindow
+        ? `First ${route.serviceWindow.first} · Last ${route.serviceWindow.last}${route.serviceWindow.lastDayOffset ? ' next day' : ''}`
+        : 'Service hours unavailable';
       return `
         <article class="overview-card">
           <div class="overview-route-number">${route.route}</div>
@@ -40,6 +43,7 @@
             <div class="overview-time"><span>1st Bus</span><strong>${first.value}</strong><small>${first.source}</small></div>
             <div class="overview-time"><span>2nd Bus</span><strong>${second.value}</strong><small>${second.source}</small></div>
           </div>
+          <p class="overview-stop-sequence">${serviceWindow}</p>
           <p class="overview-stop-sequence">${route.previousStop || 'Previous stop'} → <b>${route.name}</b> → ${route.nextStop || 'Next stop'}</p>
         </article>`;
     }).join('');

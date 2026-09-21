@@ -8,9 +8,10 @@
       || null;
   }
 
-  function announce(text) {
-    if (!('speechSynthesis' in window) || !text || speaking) return;
+  function announce(text, interrupt = false) {
+    if (!('speechSynthesis' in window) || !text || (speaking && !interrupt)) return;
     window.speechSynthesis.cancel();
+    speaking = false;
     const utterance = new SpeechSynthesisUtterance(text);
     utterance.lang = 'en-US';
     utterance.rate = 0.92;
@@ -29,6 +30,6 @@
   }
 
   window.addEventListener('busstop:voice-unlock', primeVoice);
-  window.addEventListener('busstop:announce', (event) => announce(event.detail?.text));
+  window.addEventListener('busstop:announce', (event) => announce(event.detail?.text, event.detail?.interrupt));
   window.addEventListener('pagehide', () => window.speechSynthesis?.cancel());
 })();

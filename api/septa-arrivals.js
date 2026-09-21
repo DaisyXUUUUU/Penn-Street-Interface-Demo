@@ -1,25 +1,75 @@
 const ROUTE_STOPS = [
   {
-    id: '622',
-    name: 'Chestnut St & 38th St',
-    lat: 39.955111,
-    lng: -75.198603,
-    route: '21',
-    directionId: 0,
-    previousStop: 'Chestnut St & 39th St',
-    nextStop: 'Chestnut St & 37th St'
-  },
-  {
     id: '22285',
     name: '38th St & Chestnut St',
     lat: 39.955084,
     lng: -75.198261,
     route: '40',
     directionId: 1,
+    direction: 'Westbound',
+    destination: 'Conshohocken-Monument',
+    previousStop: '38th St & Walnut St',
+    nextStop: 'Market St & 38th St - FS'
+  },
+  {
+    id: '22285',
+    name: '38th St & Chestnut St',
+    lat: 39.955084,
+    lng: -75.198261,
+    route: '79',
+    directionId: 1,
+    direction: 'Westbound',
+    destination: 'Market & 41st St',
     previousStop: '38th St & Walnut St',
     nextStop: 'Market St & 38th St - FS'
   }
 ];
+
+const GTFS_SCHEDULE = {
+  feedVersion: 'v202609061',
+  validThrough: '2027-02-20',
+  weekday: {
+    40: { first: '6:10 AM', last: '2:07 AM', lastDayOffset: 1 },
+    79: { first: '2:28 AM', last: '1:28 AM', lastDayOffset: 1 }
+  },
+  saturday: {
+    40: { first: '6:06 AM', last: '2:07 AM', lastDayOffset: 1 },
+    79: { first: '2:28 AM', last: '1:28 AM', lastDayOffset: 1 }
+  },
+  sunday: {
+    40: { first: '6:07 AM', last: '2:07 AM', lastDayOffset: 1 },
+    79: { first: '2:28 AM', last: '1:29 AM', lastDayOffset: 1 }
+  }
+};
+
+function easternServiceDate(date = new Date()) {
+  const parts = new Intl.DateTimeFormat('en-US', {
+    timeZone: 'America/New_York',
+    weekday: 'long',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit'
+  }).formatToParts(date);
+  const values = Object.fromEntries(parts.filter((part) => part.type !== 'literal').map((part) => [part.type, part.value]));
+  return {
+    date: `${values.year}-${values.month}-${values.day}`,
+    scheduleType: values.weekday === 'Saturday'
+      ? 'saturday'
+      : values.weekday === 'Sunday' ? 'sunday' : 'weekday'
+  };
+}
+
+function serviceWindowFor(route) {
+  const serviceDate = easternServiceDate();
+  const window = GTFS_SCHEDULE[serviceDate.scheduleType][route];
+  return {
+    ...window,
+    serviceDate: serviceDate.date,
+    source: 'SEPTA GTFS schedule',
+    feedVersion: GTFS_SCHEDULE.feedVersion,
+    validThrough: GTFS_SCHEDULE.validThrough
+  };
+}
 
 function readVarint(bytes, start) {
   let value = 0n;
@@ -210,8 +260,8 @@ function parseScheduledArrivals(payload, stop) {
       arrivalEpoch: parseEasternScheduleTime(entry.DateCalender),
       tripId: String(entry.trip_id || ''),
       vehicleId: null,
-      destination: entry.DirectionDesc || `Route ${stop.route} destination`,
-      direction: 'Scheduled service',
+      destination: entry.DirectionDesc || stop.destination,
+      direction: stop.direction,
       vehicleNextStopName: null,
       distanceMeters: null,
       source: 'scheduled'
@@ -243,7 +293,7 @@ module.exports = async (_request, response) => {
     ]));
     const routes = ROUTE_STOPS.map((stop, index) => {
       const realtimeArrivals = predictions
-        .filter((prediction) => prediction.stop.id === stop.id)
+        .filter((prediction) => prediction.stop.id === stop.id && prediction.stop.route === stop.route)
         .map((prediction) => {
           const vehicles = vehiclesByRoute.get(stop.route) || [];
           const vehicle = vehicles.find((item) => String(item.VehicleID) === String(prediction.vehicleId));
@@ -251,9 +301,10 @@ module.exports = async (_request, response) => {
           const lng = vehicle ? Number(vehicle.lng) : null;
           return {
             arrivalEpoch: prediction.arrivalEpoch,
+            tripId: prediction.tripId,
             vehicleId: prediction.vehicleId,
-            destination: vehicle?.destination || `Route ${stop.route} destination`,
-            direction: vehicle?.Direction || null,
+            destination: vehicle?.destination || stop.destination,
+            direction: vehicle?.Direction || stop.direction,
             vehicleNextStopName: vehicle?.next_stop_name || null,
             distanceMeters: Number.isFinite(lat) && Number.isFinite(lng)
               ? distanceMeters(lat, lng, stop.lat, stop.lng)
@@ -281,11 +332,13 @@ module.exports = async (_request, response) => {
         if (!matchedScheduleIndexes.has(scheduledIndex)) arrivals.push(scheduled);
       });
       arrivals.sort((a, b) => a.arrivalEpoch - b.arrivalEpoch);
+      const routeScheduleAvailable = Array.isArray(scheduleData[index]?.[stop.route]);
       return {
         ...stop,
+        serviceWindow: serviceWindowFor(stop.route),
         realtimeFeedAvailable: Boolean(tripBuffer),
-        scheduleAvailable: Boolean(scheduleData[index]),
-        arrivalDataAvailable: Boolean(scheduleData[index]) || realtimeArrivals.length > 0,
+        scheduleAvailable: routeScheduleAvailable,
+        arrivalDataAvailable: routeScheduleAvailable || realtimeArrivals.length > 0,
         arrivals: arrivals.slice(0, 2)
       };
     });
@@ -294,6 +347,11 @@ module.exports = async (_request, response) => {
     response.setHeader('Access-Control-Allow-Origin', '*');
     response.status(200).json({
       stopName: '38th St & Chestnut St',
+      scheduleSource: {
+        name: 'SEPTA GTFS schedule',
+        feedVersion: GTFS_SCHEDULE.feedVersion,
+        validThrough: GTFS_SCHEDULE.validThrough
+      },
       updatedAt: new Date().toISOString(),
       routes
     });
