@@ -29,7 +29,9 @@
     'weather-sky': '☁️', 'weather-share-shade': '☂️', 'weather-warm-wish': '🌤️', 'weather-forecast-share': '🌦️',
     'memories-favorite': '🚌', 'memories-thankyou': '💌', 'memories-photo-look': '🖼️', 'memories-write': '✍️',
     'friends-checkin': '💬', 'friends-compliment': '💛', 'friends-plan': '📅', 'friends-share-song': '🎧',
-    'family-checkin': '☎️', 'family-photo': '👨‍👩‍👧', 'family-plan-call': '📞', 'family-gratitude': '❤️'
+    'family-checkin': '☎️', 'family-photo': '👨‍👩‍👧', 'family-plan-call': '📞', 'family-gratitude': '❤️',
+    'indoor-long-note': '✉️', 'outdoor-311': '🛠️', 'animals-adopt-share': '🐶', 'weather-plan': '🗓️',
+    'memories-voice': '🎙️', 'friends-voice': '🎧', 'family-recipe': '🍲'
   };
 
   function weatherPhrase(weather) {
@@ -94,7 +96,16 @@
     bankItem('family-checkin', 'Check in with family', 'Send a short message home to say you are thinking of them.', 1, ['family']),
     bankItem('family-photo', 'Send a family photo', 'Share an old family photo with a sibling or parent.', 3, ['family', 'memories']),
     bankItem('family-plan-call', 'Plan a call with family', 'Text a family member to set up a quick catch-up call.', 3, ['family']),
-    bankItem('family-gratitude', 'Note family gratitude', 'Write down one thing you are grateful a family member did.', 5, ['family'])
+    bankItem('family-gratitude', 'Note family gratitude', 'Write down one thing you are grateful a family member did.', 5, ['family']),
+
+    // Longer acts so a rider who picks 10 minutes still gets something sized to that time.
+    bankItem('indoor-long-note', 'Write a note for the next rider', 'Write a few warm lines on paper, fold it, and tuck it where the next rider will find it.', 8, ['indoor']),
+    bankItem('outdoor-311', 'Report a fix with Philly311', 'Find one broken light, bin, or sign near the stop and report it in the Philly311 app.', 6, ['outdoor']),
+    bankItem('animals-adopt-share', 'Share an adoptable pet', 'Browse ACCT Philly or PAWS adoptable pets and send one to a friend who wants a pet.', 7, ['animals', 'friends']),
+    bankItem('weather-plan', 'Plan a weather-perfect outing', 'Check the week\'s forecast and text someone a plan for the nicest day.', 6, ['weather', 'friends']),
+    bankItem('memories-voice', 'Record a memory voice note', 'Record a two-minute voice note retelling a favorite shared moment and send it to them.', 8, ['memories', 'friends']),
+    bankItem('friends-voice', 'Send a friend a real update', 'Record a voice note telling a friend about your week and ask about theirs.', 6, ['friends']),
+    bankItem('family-recipe', 'Ask for a family recipe', 'Message a relative asking for the story and steps behind a dish they make.', 6, ['family'])
   ];
 
   const I18N = {

@@ -210,12 +210,18 @@
     flowerStoryEl.style.setProperty('--story-pointer-x', `${Logic.clamp(centerX - left, 18, storyRect.width - 18)}px`);
   }
 
+  // Halos live in their own layer under every flower, so one flower's glow never
+  // washes out a neighbour that happens to sit close by.
+  function haloLayerHtml(list) {
+    return `<div class="blossom-halos" aria-hidden="true">${list.map((b) => `<span style="left:${(b.x * 100).toFixed(1)}%; top:${(b.y * 100).toFixed(1)}%"></span>`).join('')}</div>`;
+  }
+
   function refreshHomeCount() {
     const list = repo.load(STOP_ID);
     closeFlowerStory();
     homeCountEl.textContent = String(list.length);
     const visible = list.slice(-24);
-    homeBlossomsEl.innerHTML = visible.map((blossom, index) => {
+    homeBlossomsEl.innerHTML = haloLayerHtml(visible) + visible.map((blossom, index) => {
       const variant = blossomVariant(blossom, index);
       const story = fallbackStory(blossom);
       return `<button type="button" class="home-blossom" data-blossom-index="${index}" style="left:${(blossom.x * 100).toFixed(1)}%; top:${(blossom.y * 100).toFixed(1)}%; ${flowerSpriteStyle(variant)}" aria-label="${escapeHtml(t().home.openStory(story.title))}"><span class="home-blossom-image" aria-hidden="true"></span></button>`;
@@ -299,7 +305,7 @@
   function createInitialState() {
     return {
       screen: 'closed', routeSnapshot: null, tags: [], availableMinutes: 3,
-      acts: [], source: null, selectedActId: null, rerollCount: 0, pendingBlossomTag: null,
+      acts: [], shownTitles: [], source: null, selectedActId: null, rerollCount: 0, pendingBlossomTag: null,
       pendingBlossomPalette: null, lastBlossom: null, lastActTitle: '', lastActDescription: ''
     };
   }
@@ -472,7 +478,7 @@
   function generatingTemplate() {
     return `
       <div class="kf-generating">
-        ${flowerSvg('kf-petal-spinner')}
+        <span class="kf-petal-spinner">${spriteFlowerHtml(pendingFlowerVariant())}</span>
         <p>${escapeHtml(t().generating.thinking)}</p>
       </div>`;
   }
@@ -559,7 +565,7 @@
 
   function renderExistingBlossomsHtml() {
     const visible = repo.load(STOP_ID).slice(-24);
-    return visible.map((b, index) => `<span class="kf-existing-blossom${b.id === state.lastBlossom?.id ? ' kf-existing-blossom--new' : ''}" style="left:${(b.x * 100).toFixed(1)}%; top:${(b.y * 100).toFixed(1)}%;">${spriteFlowerHtml(blossomVariant(b, index))}</span>`).join('');
+    return haloLayerHtml(visible) + visible.map((b, index) => `<span class="kf-existing-blossom${b.id === state.lastBlossom?.id ? ' kf-existing-blossom--new' : ''}" style="left:${(b.x * 100).toFixed(1)}%; top:${(b.y * 100).toFixed(1)}%;">${spriteFlowerHtml(blossomVariant(b, index))}</span>`).join('');
   }
 
   // Same sprite sheet and leafy tree as the home card, so the flow matches what riders see there.
@@ -819,6 +825,7 @@
   function applyGenerationResult(acts, source) {
     if (state.screen !== 'generating') return;
     state.acts = acts;
+    state.shownTitles = [...state.shownTitles, ...acts.map((act) => act.title)].slice(-12);
     state.source = source;
     state.selectedActId = null;
     state.screen = 'pick';
@@ -828,12 +835,12 @@
   async function runGeneration() {
     const context = buildContext();
     const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), Logic.AI_TIMEOUT_MS);
+    const timeout = setTimeout(() => controller.abort(), Logic.AI_CLIENT_TIMEOUT_MS);
     try {
       const res = await fetch('/api/kindness-act', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(context),
+        body: JSON.stringify({ ...context, excludeTitles: state.shownTitles }),
         signal: controller.signal
       });
       clearTimeout(timeout);

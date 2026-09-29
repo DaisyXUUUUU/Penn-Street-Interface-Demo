@@ -21,20 +21,30 @@
   const MAX_REROLLS = 2;
   const IDLE_TIMEOUT_MS = 45_000;
   const IDLE_WARNING_MS = 10_000;
-  const AI_TIMEOUT_MS = 8_000;
+  const AI_TIMEOUT_MS = 8_000; // one model call
+  const AI_SERVER_BUDGET_MS = 13_000; // first call + one corrective retry
+  const AI_CLIENT_TIMEOUT_MS = 15_000; // kiosk waits a little longer than the server budget
 
   const SAFETY_PATTERNS = [
-    /\bmoney\b/i, /\bpay(ment)?\b/i, /\bbuy\b/i, /\bpurchase\b/i, /\bdonate\b/i, /\btip\b/i, /\bgift\b/i, /venmo|paypal|cash\s*app/i,
-    /phone\s*number/i, /contact\s*info/i, /social\s*media/i, /follow\s*(them|him|her)/i, /\baddress\b/i,
+    /\bmoney\b/i, /\bpay(ment)?\b/i, /\bbuy\b/i, /\bpurchase\b/i, /\bdonate\b/i, /\btip(ping)?\s+(the\s+|your\s+|a\s+)?(driver|operator|server|waiter|barista|worker|busker)\b/i, /\btip\s+jar\b/i, /\bgift\b/i, /venmo|paypal|cash\s*app/i,
+    /phone\s*number/i, /contact\s*info/i, /\b(their|his|her|a\s+stranger'?s)\s+social\s*media\b/i, /follow\s*(them|him|her)/i, /\baddress\b/i,
     /\btouch\b/i, /\bpet\s+(the|a|an)\s+/i, /\bfeed\s+(the|a|an)\s+/i, /\bhug\b/i,
     /\bpick\s*up\s+(the|a|an)\s+(\w+\s+)?(dog|cat|bird|puppy|kitten|squirrel|rabbit|animal|pet)\b/i,
     /\bedge\s+of\s+the\s+platform\b/i, /\btrack(s)?\b/i, /\blane\b/i, /while\s+walking/i, /walk\s+while/i,
-    /\bpolitic/i, /\breligio/i, /\bdiagnos/i, /\bmedication\b/i, /\billness\b/i, /\bidentity\b/i, /\blooks?\b.*\b(nice|pretty|attractive)\b/i,
+    /\bpolitic/i, /\breligio/i, /\bdiagnos/i, /\bmedication\b/i, /\billness\b/i, /\bidentity\b/i, /\b(you|they|he|she|someone|them|him|her)\s+looks?\s+(so\s+|really\s+)?(nice|pretty|attractive|beautiful|handsome|good|great)\b/i,
     /\bphotograph\b/i, /\btake\s+a\s+photo\s+of\s+(them|him|her|someone)/i, /\bstranger.?s?\s+(number|address)/i
   ];
 
   function clamp(value, min, max) {
     return Math.max(min, Math.min(max, value));
+  }
+
+  // Acts should fill roughly the time the rider chose, not just fit under it:
+  // 1 -> 1, 3 -> 2-3, 5 -> 3-5, 10 -> 6-10.
+  function minuteRange(availableMinutes) {
+    const max = Math.max(1, Math.floor(Number(availableMinutes) || 1));
+    const min = max <= 1 ? 1 : Math.max(1, Math.ceil(max * 0.55));
+    return { min, max };
   }
 
   function countWords(text) {
@@ -83,6 +93,8 @@
         errors.push(`act[${index}].estimatedMinutes invalid`);
       } else if (estimatedMinutes > context.availableMinutes) {
         errors.push(`act[${index}].estimatedMinutes ${estimatedMinutes} exceeds availableMinutes ${context.availableMinutes}`);
+      } else if (estimatedMinutes < minuteRange(context.availableMinutes).min) {
+        errors.push(`act[${index}].estimatedMinutes ${estimatedMinutes} is too short; the rider chose ${context.availableMinutes} minutes, so acts must take at least ${minuteRange(context.availableMinutes).min}`);
       }
       if (!Array.isArray(tags) || tags.length === 0 || !tags.every((tag) => selectedTags.has(tag))) {
         errors.push(`act[${index}].tags must be a non-empty subset of selected tags`);
@@ -127,9 +139,15 @@
       const matchesTag = selectedTags.length === 0 || item.tags.some((tag) => selectedTags.includes(tag));
       return withinTime && matchesTag && passesSafetyFilter(item);
     });
-    const shuffled = randomSeed === undefined
+    const shuffledAll = randomSeed === undefined
       ? eligible.slice().sort(() => Math.random() - 0.5)
       : seededShuffle(eligible, randomSeed);
+    // Prefer acts sized to the chosen time; shorter ones only fill remaining slots.
+    const { min } = minuteRange(context.availableMinutes);
+    const shuffled = [
+      ...shuffledAll.filter((item) => item.estimatedMinutes >= min),
+      ...shuffledAll.filter((item) => item.estimatedMinutes < min)
+    ];
 
     const picked = [];
     const remainingTags = new Set(selectedTags);
@@ -236,8 +254,11 @@
     IDLE_TIMEOUT_MS,
     IDLE_WARNING_MS,
     AI_TIMEOUT_MS,
+    AI_SERVER_BUDGET_MS,
+    AI_CLIENT_TIMEOUT_MS,
     SAFETY_PATTERNS,
     clamp,
+    minuteRange,
     withinTextLimits,
     passesSafetyFilter,
     filterSafeActs,

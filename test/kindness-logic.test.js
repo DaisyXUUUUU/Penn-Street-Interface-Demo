@@ -148,3 +148,35 @@ test('treeRepository stores and retrieves blossoms per stop and date, scoped in 
   assert.equal(loaded[0].flowerVariant, 4);
   assert.equal(loaded[0].actTitle, 'Send a quick check-in text');
 });
+
+test('minuteRange sizes acts to the chosen time, not just under it', () => {
+  assert.deepEqual(KindnessLogic.minuteRange(1), { min: 1, max: 1 });
+  assert.deepEqual(KindnessLogic.minuteRange(3), { min: 2, max: 3 });
+  assert.deepEqual(KindnessLogic.minuteRange(5), { min: 3, max: 5 });
+  assert.deepEqual(KindnessLogic.minuteRange(10), { min: 6, max: 10 });
+});
+
+test('validateActs rejects acts far shorter than the chosen time', () => {
+  const payload = { acts: [validAct({ id: 'a1', estimatedMinutes: 1 }), validAct({ id: 'a2', estimatedMinutes: 8 }), validAct({ id: 'a3', estimatedMinutes: 10 })] };
+  const result = KindnessLogic.validateActs(payload, { tags: ['outdoor'], availableMinutes: 10, locale: 'en' });
+  assert.equal(result.valid, false);
+  assert.ok(result.errors.some((e) => e.includes('too short')));
+});
+
+test('selectFallbackActs prefers acts sized to a longer chosen time', () => {
+  const context = { tags: ['family'], availableMinutes: 10, timeOfDay: 'afternoon', weather: { condition: 'sunny' } };
+  const acts = KindnessLogic.selectFallbackActs(KindnessData.FALLBACK_BANK, context, 3, 7);
+  assert.ok(acts[0].estimatedMinutes >= KindnessLogic.minuteRange(10).min);
+});
+
+test('passesSafetyFilter keeps harmless phrasings that used to be false positives', () => {
+  assert.equal(KindnessLogic.passesSafetyFilter(validAct({ title: 'Leave a tip for the next rider', description: 'Write a weather tip on a note.' })), true);
+  assert.equal(KindnessLogic.passesSafetyFilter(validAct({ description: 'Share an adoptable pet post on your social media.' })), true);
+  assert.equal(KindnessLogic.passesSafetyFilter(validAct({ description: 'If someone looks lost, point them to a nice cafe.' })), true);
+});
+
+test('passesSafetyFilter still blocks money tips, stranger social media, and appearance comments', () => {
+  assert.equal(KindnessLogic.passesSafetyFilter(validAct({ description: 'Tip the driver a few dollars.' })), false);
+  assert.equal(KindnessLogic.passesSafetyFilter(validAct({ description: 'Ask for their social media so you can follow up.' })), false);
+  assert.equal(KindnessLogic.passesSafetyFilter(validAct({ description: 'Tell someone they look nice today.' })), false);
+});

@@ -5,6 +5,7 @@
 
 .home-blossom {
   position: absolute;
+  z-index: 3;
   width: 6.2cqw;
   height: 6.2cqw;
   padding: 0;
@@ -12,7 +13,8 @@
   border-radius: 50%;
   background: transparent;
   transform: translate(-50%, -50%);
-  filter: drop-shadow(0 .25cqw .35cqw #173b2545);
+  /* White glow lifts the flowers off the similarly coloured leaves. */
+  filter: drop-shadow(0 0 .25cqw #fff) drop-shadow(0 0 .7cqw #fff9) drop-shadow(0 .2cqw .35cqw #173b2555);
   cursor: pointer;
   pointer-events: auto;
   transition: transform .16s ease-out, filter .16s ease-out;
@@ -25,6 +27,31 @@
   outline: 0;
   transform: translate(-50%, -50%) scale(1.15);
   filter: drop-shadow(0 0 .75cqw #fff) drop-shadow(0 0 1.25cqw #ff7595);
+}
+
+/* Soft breathing halo behind each flower, in a shared layer under all flowers. */
+.blossom-halos { position: absolute; z-index: 2; inset: 0; pointer-events: none; }
+.blossom-halos > span {
+  position: absolute;
+  width: 9.6cqw;
+  height: 9.6cqw;
+  margin: -4.8cqw 0 0 -4.8cqw;
+  border-radius: 50%;
+  background: radial-gradient(circle, #fff8e0e6 0, #fff8e099 42%, #fff8e000 70%);
+  animation: blossom-halo 3s ease-in-out infinite;
+}
+
+.blossom-halos > span:nth-child(odd) { animation-delay: -1.5s; }
+.kf-tree-canvas .blossom-halos > span { width: 7.8cqw; height: 7.8cqw; margin: -3.9cqw 0 0 -3.9cqw; }
+.kf-done-tree .blossom-halos > span { width: 6.8cqw; height: 6.8cqw; margin: -3.4cqw 0 0 -3.4cqw; }
+
+@keyframes blossom-halo {
+  0%, 100% { opacity: .6; transform: scale(.92); }
+  50% { opacity: .95; transform: scale(1.06); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .blossom-halos > span { animation: none; }
 }
 
 /* Gentle hop on the inner image (the button's own transform handles position/hover),
@@ -582,17 +609,19 @@
 .kf-generating { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1.4cqw; }
 
 .kf-petal-spinner {
+  display: block;
   width: 12cqw;
   height: 12cqw;
   min-width: 64px;
   min-height: 64px;
-  animation: kf-spin 1.6s linear infinite;
+  filter: drop-shadow(0 0 .6cqw #fff) drop-shadow(0 .3cqw .6cqw #173b2533);
+  animation: kf-spin 2.4s linear infinite;
 }
+
+.kf-petal-spinner .kf-flower-sprite { width: 100%; height: 100%; }
 
 .kindness-flow.kf-reduced-motion .kf-petal-spinner { animation: none; }
 
-.kf-petal-spinner .kf-petals ellipse { fill: #a8578a; stroke: none; }
-.kf-petal-spinner .kf-center { fill: #6d8f6b; stroke: none; }
 
 @keyframes kf-spin { to { transform: rotate(360deg); } }
 
@@ -916,7 +945,7 @@
   min-height: 32px;
   transform: translate(-50%, -50%);
   pointer-events: none;
-  filter: drop-shadow(0 .22cqw .35cqw #173b2540);
+  filter: drop-shadow(0 0 .3cqw #fff) drop-shadow(0 0 .8cqw #fffc) drop-shadow(0 .2cqw .3cqw #173b2540);
 }
 
 .kf-existing-blossom .kf-flower-sprite { width: 100%; height: 100%; }
