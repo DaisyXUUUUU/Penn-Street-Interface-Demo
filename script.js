@@ -99,7 +99,6 @@ function renderRoutes() {
         <span class="route-chip-destination">to ${escapeHtml(destinationLabel(route))}</span>
         <span class="route-chip-times"><strong>${escapeHtml(etaLabel(first))}</strong><span>${second ? escapeHtml(etaLabel(second)) : ''}</span>${isLive ? '<span class="route-chip-live">Live</span>' : ''}</span>
       </span>
-      <span class="route-chip-arrow" aria-hidden="true">›</span>
     </button>`;
   }).join('');
 

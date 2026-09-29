@@ -106,17 +106,16 @@ body {
 }
 
 .route-summary-heading h1 svg { width: 3.3cqw; height: 3.3cqw; color: #1b2c4f; }
-.route-summary-heading p { margin: 0; color: #6e7d9c; font-size: 1.7cqw; font-weight: 500; }
 .route-summary-list { display: grid; grid-template-columns: 1fr 1fr; gap: 1.5cqw; }
 
 .route-chip {
   min-width: 0;
   height: 10.4cqw;
   display: grid;
-  grid-template-columns: 13cqw minmax(0, 1fr) 2.6cqw;
+  grid-template-columns: 13cqw minmax(0, 1fr);
   align-items: center;
   gap: 2cqw;
-  padding: 1.1cqw 1.8cqw 1.1cqw 1.2cqw;
+  padding: 1.1cqw 2cqw 1.1cqw 1.2cqw;
   border: .2cqw solid #b4d0f2;
   border-radius: 2.1cqw;
   background: #fff;
@@ -153,7 +152,6 @@ body {
 .route-chip-live { display: inline-flex; align-items: center; gap: .55cqw; color: #22b84a; font-size: 1.7cqw; font-weight: 600; text-transform: uppercase; }
 .route-chip.active .route-chip-live { color: #6fe36b; }
 .route-chip-live::before { content: ""; width: 1.25cqw; height: 1.25cqw; border-radius: 50%; background: currentColor; box-shadow: 0 0 .7cqw currentColor; }
-.route-chip-arrow { font-size: 5cqw; font-weight: 300; line-height: 1; justify-self: end; }
 /* Feed status stays available to screen readers without cluttering the card. */
 .route-feed-status { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); margin: 0; white-space: nowrap; }
 
@@ -169,8 +167,8 @@ body {
   box-shadow: 0 .5cqw 1.6cqw #254b751c;
 }
 
-/* Mirrored so the shelter sits on the right, behind the tree, as in the design. */
-.kindness-background { position: absolute; z-index: 0; inset: 0; width: 100%; height: 100%; object-fit: cover; object-position: 50% 86%; transform: scaleX(-1); opacity: .95; }
+/* Slightly oversized and shifted right so the shelter clears the tree. */
+.kindness-background { position: absolute; z-index: 0; top: 0; right: -6%; width: 106%; height: 100%; object-fit: cover; object-position: 50% 96%; }
 .kindness-hero::before { content: ""; position: absolute; z-index: 1; inset: 0 auto 0 0; width: 52%; background: linear-gradient(90deg, #f2f8fbcc 0, #f2f8fb99 55%, #f2f8fb00 100%); pointer-events: none; }
 
 .kindness-copy {
@@ -211,11 +209,11 @@ body {
 .tree-art {
   position: absolute;
   z-index: 2;
-  left: 33.5cqw;
+  /* Sized to end before the shelter on the right edge of the background. */
+  left: 26cqw;
   bottom: -.6cqw;
-  height: 101%;
-  /* Slightly wider than the source art so the canopy reads like the design. */
-  aspect-ratio: 770 / 964;
+  height: 78%;
+  aspect-ratio: 740 / 964;
   pointer-events: none;
 }
 
