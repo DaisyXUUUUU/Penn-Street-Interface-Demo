@@ -27,6 +27,31 @@
   filter: drop-shadow(0 0 .75cqw #fff) drop-shadow(0 0 1.25cqw #ff7595);
 }
 
+/* Gentle hop on the inner image (the button's own transform handles position/hover),
+   staggered so the flowers take turns and invite a tap. */
+.home-blossom .home-blossom-image {
+  transform-origin: 50% 80%;
+  animation: home-blossom-hop 3.6s ease-in-out infinite;
+}
+
+.home-blossom:nth-child(3n + 1) .home-blossom-image { animation-delay: -.4s; }
+.home-blossom:nth-child(3n + 2) .home-blossom-image { animation-delay: -1.6s; }
+.home-blossom:nth-child(3n) .home-blossom-image { animation-delay: -2.8s; }
+.home-blossom:nth-child(4n + 1) .home-blossom-image { animation-duration: 3.2s; }
+.home-blossom:nth-child(4n + 3) .home-blossom-image { animation-duration: 4.1s; }
+.home-blossom.is-active .home-blossom-image { animation-play-state: paused; }
+
+@keyframes home-blossom-hop {
+  0%, 62%, 100% { transform: translateY(0) scale(1) rotate(0); }
+  70% { transform: translateY(-14%) scale(1.06) rotate(-6deg); }
+  78% { transform: translateY(0) scale(.97, 1.03) rotate(3deg); }
+  86% { transform: translateY(-5%) scale(1.02) rotate(0); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .home-blossom .home-blossom-image { animation: none; }
+}
+
 .home-blossom-image,
 .flower-story-icon {
   display: block;
