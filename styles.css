@@ -167,8 +167,8 @@ body {
   box-shadow: 0 .5cqw 1.6cqw #254b751c;
 }
 
-/* Slightly oversized and shifted right so the shelter clears the tree. */
-.kindness-background { position: absolute; z-index: 0; top: 0; right: -6%; width: 106%; height: 100%; object-fit: cover; object-position: 50% 96%; }
+/* Anchored bottom-right so the shelter tucks into the corner beside the tree. */
+.kindness-background { position: absolute; z-index: 0; inset: 0; width: 100%; height: 100%; object-fit: cover; object-position: 100% 100%; }
 .kindness-hero::before { content: ""; position: absolute; z-index: 1; inset: 0 auto 0 0; width: 52%; background: linear-gradient(90deg, #f2f8fbcc 0, #f2f8fb99 55%, #f2f8fb00 100%); pointer-events: none; }
 
 .kindness-copy {
@@ -180,7 +180,7 @@ body {
   color: #0b2b2b;
 }
 
-.kindness-copy h2 { margin: 0; color: #0b2b2b; font-size: 6.3cqw; font-weight: 800; line-height: 1.02; white-space: nowrap; letter-spacing: -.15cqw; }
+.kindness-copy h2 { margin: 0; color: #0b2b2b; font-size: 5.6cqw; font-weight: 800; line-height: 1.02; white-space: nowrap; letter-spacing: -.15cqw; }
 .kindness-tagline { margin: 2.2cqw 0 0; color: #5c6b6b; font-size: 2.35cqw; font-weight: 400; line-height: 1.25; }
 .kindness-total { margin: 5.2cqw 0 0; display: grid; gap: 1.2cqw; }
 .kindness-total strong { color: #0b2b2b; font-size: 11.5cqw; font-weight: 900; line-height: .8; letter-spacing: -.3cqw; }
@@ -209,11 +209,11 @@ body {
 .tree-art {
   position: absolute;
   z-index: 2;
-  /* Sized to end before the shelter on the right edge of the background. */
-  left: 26cqw;
+  /* Canopy fills the right side; widened a touch so it reads like the design. */
+  left: 31cqw;
   bottom: -.6cqw;
-  height: 78%;
-  aspect-ratio: 740 / 964;
+  height: 97%;
+  aspect-ratio: 800 / 964;
   pointer-events: none;
 }
 
