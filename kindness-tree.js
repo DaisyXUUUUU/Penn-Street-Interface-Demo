@@ -558,8 +558,24 @@
   }
 
   function renderExistingBlossomsHtml() {
-    const list = repo.load(STOP_ID);
-    return list.map((b) => `<span class="kf-existing-blossom" style="left:${(b.x * 100).toFixed(1)}%; top:${(b.y * 100).toFixed(1)}%; ${flowerStyle(b.petalColor || tagColor(b.type), b.centerColor)}">${flowerSvg()}</span>`).join('');
+    const visible = repo.load(STOP_ID).slice(-24);
+    return visible.map((b, index) => `<span class="kf-existing-blossom${b.id === state.lastBlossom?.id ? ' kf-existing-blossom--new' : ''}" style="left:${(b.x * 100).toFixed(1)}%; top:${(b.y * 100).toFixed(1)}%;">${spriteFlowerHtml(blossomVariant(b, index))}</span>`).join('');
+  }
+
+  // Same sprite sheet and leafy tree as the home card, so the flow matches what riders see there.
+  function spriteFlowerHtml(variant) {
+    return `<span class="kf-flower-sprite" style="${flowerSpriteStyle(variant)}" aria-hidden="true"></span>`;
+  }
+
+  function treeCanvasHtml(id) {
+    return `<div class="kf-tree-canvas"${id ? ` id="${id}"` : ''}>
+      <img class="kf-tree-canvas-img" src="assets/kindness-tree-leafy.png" alt="" />
+      ${renderExistingBlossomsHtml()}
+    </div>`;
+  }
+
+  function pendingFlowerVariant() {
+    return repo.load(STOP_ID).length % 12;
   }
 
   function plantStepsHtml() {
@@ -574,7 +590,6 @@
 
   function plantTemplate() {
     const strings = t();
-    const palette = state.pendingBlossomPalette || nextBlossomPalette(state.pendingBlossomTag);
     return `
       <div class="kf-plant">
         ${plantStepsHtml()}
@@ -584,12 +599,11 @@
         </div>
         <p class="kf-plant-promise"><span aria-hidden="true">♥</span><b>${escapeHtml(strings.plant.promise)}:</b> ${escapeHtml(state.lastActTitle || '')}</p>
         <div class="kf-plant-tree" id="kf-plant-tree" role="button" tabindex="0" aria-label="Tree planting area">
-          <img class="kf-plant-tree-img" src="assets/tree.png" alt="" />
-          ${renderExistingBlossomsHtml()}
+          ${treeCanvasHtml('kf-plant-canvas')}
         </div>
         <div class="kf-tray">
-          <button type="button" class="kf-blossom" id="kf-pending-blossom" style="${flowerStyle(palette.petal, palette.center)}" aria-pressed="false" aria-label="Your flower — drag onto the tree, or tap then tap the tree">
-            ${flowerSvg()}
+          <button type="button" class="kf-blossom" id="kf-pending-blossom" aria-pressed="false" aria-label="Your flower — drag onto the tree, or tap then tap the tree">
+            ${spriteFlowerHtml(pendingFlowerVariant())}
             <span>${escapeHtml(strings.plant.yourFlower)}</span>
           </button>
           <p class="kf-plant-instructions">${escapeHtml(strings.plant.instructions)}</p>
@@ -601,6 +615,9 @@
   function bindPlantEvents() {
     const blossomEl = stage.querySelector('#kf-pending-blossom');
     const treeEl = stage.querySelector('#kf-plant-tree');
+    // Positions are stored relative to the tree canvas (same box as the home tree),
+    // not the whole planting area, so a flower lands in the same spot on both.
+    const canvasEl = stage.querySelector('#kf-plant-canvas');
     const placeForMeBtn = stage.querySelector('#kf-place-for-me');
     let armed = false;
     let dragging = false;
@@ -674,11 +691,7 @@
         const inside = event.clientX >= treeRect.left && event.clientX <= treeRect.right
           && event.clientY >= treeRect.top && event.clientY <= treeRect.bottom;
         removeGhost();
-        if (inside) {
-          const x = (event.clientX - treeRect.left) / treeRect.width;
-          const y = (event.clientY - treeRect.top) / treeRect.height;
-          placeBlossom(x, y);
-        }
+        if (inside) placeAtPointer(event);
       } else {
         removeGhost();
         armed = !armed;
@@ -693,12 +706,16 @@
       removeGhost();
     });
 
+    function placeAtPointer(event) {
+      const canvasRect = canvasEl.getBoundingClientRect();
+      const x = Logic.clamp((event.clientX - canvasRect.left) / canvasRect.width, 0.04, 0.96);
+      const y = Logic.clamp((event.clientY - canvasRect.top) / canvasRect.height, 0.04, 0.96);
+      placeBlossom(x, y);
+    }
+
     treeEl.addEventListener('click', (event) => {
       if (!armed) return;
-      const treeRect = treeEl.getBoundingClientRect();
-      const x = Logic.clamp((event.clientX - treeRect.left) / treeRect.width, 0.04, 0.96);
-      const y = Logic.clamp((event.clientY - treeRect.top) / treeRect.height, 0.04, 0.96);
-      placeBlossom(x, y);
+      placeAtPointer(event);
     });
 
     placeForMeBtn.addEventListener('click', () => {
@@ -746,11 +763,10 @@
           <span>${escapeHtml(strings.plant.todayCount(promises.length))}</span>
         </div>
         <div class="kf-done-tree" aria-label="Today's kindness tree at this stop">
-          <img src="assets/tree.png" alt="" />
-          ${renderExistingBlossomsHtml()}
+          ${treeCanvasHtml()}
         </div>
         <div class="kf-done-promise">
-          <div class="kf-done-promise-flower" style="${flowerStyle(state.lastBlossom?.petalColor || tagColor(state.lastBlossom?.type), state.lastBlossom?.centerColor)}">${flowerSvg()}</div>
+          <div class="kf-done-promise-flower">${spriteFlowerHtml(blossomVariant(state.lastBlossom || {}, 0))}</div>
           <div>
             <span>${escapeHtml(strings.plant.promise)}</span>
             <strong>${escapeHtml(state.lastActTitle || '')}</strong>
