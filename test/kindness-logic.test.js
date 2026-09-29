@@ -137,11 +137,14 @@ test('treeRepository stores and retrieves blossoms per stop and date, scoped in 
   assert.deepEqual(repo.load('010101', date), []);
   repo.addBlossom('010101', {
     id: 'b1', type: 'friends', x: 0.4, y: 0.3, petalColor: '#ef7180', centerColor: '#f6c443',
-    createdAt: Date.now(), status: 'promised'
+    createdAt: Date.now(), status: 'promised', flowerVariant: 4,
+    actTitle: 'Send a quick check-in text', actDescription: 'Message a friend a short thinking-of-you note.'
   }, date);
   const loaded = repo.load('010101', date);
   assert.equal(loaded.length, 1);
   assert.equal(loaded[0].id, 'b1');
   assert.equal(loaded[0].petalColor, '#ef7180');
   assert.equal(loaded[0].centerColor, '#f6c443');
+  assert.equal(loaded[0].flowerVariant, 4);
+  assert.equal(loaded[0].actTitle, 'Send a quick check-in text');
 });

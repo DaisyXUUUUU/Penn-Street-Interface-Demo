@@ -25,6 +25,13 @@
   const homeCountEl = document.getElementById('kindness-count');
   const homeCtaBtn = document.getElementById('kindness-cta');
   const homeBlossomsEl = document.getElementById('home-tree-blossoms');
+  const kindnessHeroEl = document.querySelector('.kindness-hero');
+  const flowerStoryEl = document.getElementById('flower-story');
+  const flowerStoryIconEl = document.getElementById('flower-story-icon');
+  const flowerStoryTitleEl = document.getElementById('flower-story-title');
+  const flowerStoryDescriptionEl = document.getElementById('flower-story-description');
+  const flowerStoryTimeEl = document.getElementById('flower-story-time');
+  const flowerStoryCloseEl = document.getElementById('flower-story-close');
 
   let latestRoutes = [];
   let latestSelectedRoute = null;
@@ -130,6 +137,20 @@
     return `k${Date.now().toString(36)}${Math.random().toString(36).slice(2, 8)}`;
   }
 
+  function blossomVariant(blossom, index) {
+    const saved = Number(blossom.flowerVariant);
+    if (Number.isInteger(saved) && saved >= 0) return saved % 12;
+    const idHash = [...String(blossom.id || '')].reduce((sum, char) => sum + char.charCodeAt(0), 0);
+    return (idHash + index) % 12;
+  }
+
+  function flowerSpriteStyle(variant) {
+    const safeVariant = Math.max(0, Math.min(11, Number(variant) || 0));
+    const column = safeVariant % 3;
+    const row = Math.floor(safeVariant / 3);
+    return `--flower-x:${column * 50}%; --flower-y:${(row * 100 / 3).toFixed(3)}%`;
+  }
+
   function flowerSvg(extraClass) {
     return `<svg class="kf-tag-flower ${extraClass || ''}" viewBox="0 0 100 100" aria-hidden="true">
       <g class="kf-petals">
@@ -145,10 +166,70 @@
 
   // ---------------- Home card ----------------
 
+  function fallbackStory(blossom) {
+    const item = FALLBACK_BANK.find((act) => act.tags.includes(blossom.type)) || FALLBACK_BANK[0];
+    return {
+      title: blossom.actTitle || blossom.title || item?.title || t().home.fallbackTitle,
+      description: blossom.actDescription || blossom.description || item?.description || t().home.fallbackDescription
+    };
+  }
+
+  function plantedTimeLabel(createdAt) {
+    const date = new Date(Number(createdAt) || Date.now());
+    const formatted = new Intl.DateTimeFormat(currentLocale(), {
+      hour: 'numeric', minute: '2-digit', timeZone: 'America/New_York'
+    }).format(date);
+    return t().home.plantedAt(formatted);
+  }
+
+  function closeFlowerStory() {
+    flowerStoryEl.hidden = true;
+    homeBlossomsEl.querySelectorAll('.home-blossom.is-active').forEach((flower) => flower.classList.remove('is-active'));
+  }
+
+  function showFlowerStory(button, blossom, variant) {
+    const story = fallbackStory(blossom);
+    homeBlossomsEl.querySelectorAll('.home-blossom.is-active').forEach((flower) => flower.classList.remove('is-active'));
+    button.classList.add('is-active');
+    flowerStoryIconEl.setAttribute('style', flowerSpriteStyle(variant));
+    flowerStoryTitleEl.textContent = story.title;
+    flowerStoryDescriptionEl.textContent = story.description;
+    flowerStoryTimeEl.textContent = plantedTimeLabel(blossom.createdAt);
+    flowerStoryEl.hidden = false;
+
+    const heroRect = kindnessHeroEl.getBoundingClientRect();
+    const flowerRect = button.getBoundingClientRect();
+    const storyRect = flowerStoryEl.getBoundingClientRect();
+    const centerX = flowerRect.left + flowerRect.width / 2 - heroRect.left;
+    const centerY = flowerRect.top + flowerRect.height / 2 - heroRect.top;
+    const margin = Math.max(8, heroRect.width * .018);
+    const left = Logic.clamp(centerX - storyRect.width / 2, margin, heroRect.width - storyRect.width - margin);
+    let top = centerY - storyRect.height - flowerRect.height * .65;
+    if (top < margin) top = centerY + flowerRect.height * .65;
+    top = Logic.clamp(top, margin, heroRect.height - storyRect.height - margin);
+    flowerStoryEl.style.left = `${left}px`;
+    flowerStoryEl.style.top = `${top}px`;
+    flowerStoryEl.style.setProperty('--story-pointer-x', `${Logic.clamp(centerX - left, 18, storyRect.width - 18)}px`);
+  }
+
   function refreshHomeCount() {
     const list = repo.load(STOP_ID);
-    homeCountEl.textContent = t().home.count(list.length);
-    homeBlossomsEl.innerHTML = list.slice(-14).map((b) => `<span class="home-blossom" style="left:${(b.x * 100).toFixed(1)}%; top:${(b.y * 100).toFixed(1)}%; ${flowerStyle(b.petalColor || tagColor(b.type), b.centerColor)}">${flowerSvg()}</span>`).join('');
+    closeFlowerStory();
+    homeCountEl.textContent = String(list.length);
+    const visible = list.slice(-24);
+    homeBlossomsEl.innerHTML = visible.map((blossom, index) => {
+      const variant = blossomVariant(blossom, index);
+      const story = fallbackStory(blossom);
+      return `<button type="button" class="home-blossom" data-blossom-index="${index}" style="left:${(blossom.x * 100).toFixed(1)}%; top:${(blossom.y * 100).toFixed(1)}%; ${flowerSpriteStyle(variant)}" aria-label="${escapeHtml(t().home.openStory(story.title))}"><span class="home-blossom-image" aria-hidden="true"></span></button>`;
+    }).join('');
+    homeBlossomsEl.querySelectorAll('.home-blossom').forEach((button) => {
+      const index = Number(button.dataset.blossomIndex);
+      const blossom = visible[index];
+      button.addEventListener('click', (event) => {
+        event.stopPropagation();
+        showFlowerStory(button, blossom, blossomVariant(blossom, index));
+      });
+    });
   }
 
   function enableHomeButton() {
@@ -160,16 +241,25 @@
     if (demoParams.get('demo') !== '1') return;
     if (repo.load(STOP_ID).length > 0) return;
     const count = 8 + Math.floor(Math.random() * 5);
-    const blossoms = Array.from({ length: count }, () => ({
-      id: makeId(),
-      type: TAGS[Math.floor(Math.random() * TAGS.length)].id,
-      x: 0.18 + Math.random() * 0.64,
-      y: 0.2 + Math.random() * 0.55,
-      createdAt: Date.now() - Math.floor(Math.random() * 4 * 3600 * 1000),
-      status: 'promised'
-    }));
+    const blossoms = Array.from({ length: count }, (_, index) => {
+      const type = TAGS[Math.floor(Math.random() * TAGS.length)].id;
+      const act = FALLBACK_BANK.find((item) => item.tags.includes(type)) || FALLBACK_BANK[0];
+      return {
+        id: makeId(), type,
+        x: 0.14 + Math.random() * 0.72,
+        y: 0.12 + Math.random() * 0.53,
+        createdAt: Date.now() - Math.floor(Math.random() * 4 * 3600 * 1000),
+        status: 'promised', flowerVariant: index % 12,
+        actTitle: act.title, actDescription: act.description
+      };
+    });
     repo.save(STOP_ID, blossoms);
   }
+
+  flowerStoryCloseEl.addEventListener('click', closeFlowerStory);
+  kindnessHeroEl.addEventListener('click', (event) => {
+    if (!event.target.closest('.flower-story') && !event.target.closest('.home-blossom')) closeFlowerStory();
+  });
 
   window.addEventListener('busstop:data-updated', (event) => {
     latestRoutes = event.detail?.routes || [];
@@ -620,9 +710,11 @@
 
   function savePromiseBlossom(x, y) {
     const palette = state.pendingBlossomPalette || nextBlossomPalette(state.pendingBlossomTag);
+    const plantedCount = repo.load(STOP_ID).length;
     const blossom = {
       id: makeId(), type: state.pendingBlossomTag, x: Logic.clamp(x, 0, 1), y: Logic.clamp(y, 0, 1),
-      petalColor: palette.petal, centerColor: palette.center, createdAt: Date.now(), status: 'promised'
+      petalColor: palette.petal, centerColor: palette.center, createdAt: Date.now(), status: 'promised',
+      flowerVariant: plantedCount % 12, actTitle: state.lastActTitle, actDescription: state.lastActDescription
     };
     repo.addBlossom(STOP_ID, blossom);
     refreshHomeCount();

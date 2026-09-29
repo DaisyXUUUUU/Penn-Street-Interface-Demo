@@ -100,7 +100,11 @@
   const I18N = {
     en: {
       home: {
-        count: (n) => (n === 1 ? '1 kind promise today' : `${n} kind promises today`)
+        count: (n) => (n === 1 ? '1 kind promise today' : `${n} kind promises today`),
+        openStory: (title) => `Read the story behind ${title}`,
+        plantedAt: (time) => `Planted today at ${time}`,
+        fallbackTitle: 'A small act of kindness',
+        fallbackDescription: 'A rider chose a small way to make today a little kinder.'
       },
       infobar: {
         back: 'Back to home'
@@ -157,7 +161,11 @@
     },
     'zh-CN': {
       home: {
-        count: (n) => `今天已有 ${n} 个善意承诺`
+        count: (n) => `今天已有 ${n} 个善意承诺`,
+        openStory: (title) => `查看“${title}”背后的故事`,
+        plantedAt: (time) => `今天 ${time} 种下`,
+        fallbackTitle: '一个小小的善意行动',
+        fallbackDescription: '一位乘客选择用一个小行动，让今天更温暖。'
       },
       infobar: {
         back: '返回主页'

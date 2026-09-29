@@ -1,43 +1,80 @@
-/* Kindness Tree feature — home-card counter, and the full-flow overlay
-   (SELECT / GENERATING / PICK / PLANT / DONE). Loaded alongside the
-   existing station-board styles; uses the same cqw responsive approach. */
+/* Kindness Tree feature — interactive home tree and full flow overlay. */
 
-.kindness-count {
-  margin: 0 0 .2cqw !important;
-  color: #6a7d63;
-  font-size: 1.55cqw;
-  font-weight: 800;
-}
-
-.tree-art { position: relative; }
-
-.tree-blossoms {
-  position: absolute;
-  z-index: 2;
-  top: -1.5cqw;
-  left: 50%;
-  width: 28.5cqw;
-  aspect-ratio: 1;
-  transform: translateX(-50%);
-  pointer-events: none;
-}
+.kindness-hero .tree-art { position: absolute; }
+.kindness-hero .tree-blossoms { position: absolute; inset: 0; }
 
 .home-blossom {
   position: absolute;
-  width: 2.6cqw;
-  height: 2.6cqw;
+  width: 6.2cqw;
+  height: 6.2cqw;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
   transform: translate(-50%, -50%);
-  filter: drop-shadow(0 .15cqw .25cqw #173b2538);
+  filter: drop-shadow(0 .25cqw .35cqw #173b2545);
+  cursor: pointer;
+  pointer-events: auto;
+  transition: transform .16s ease-out, filter .16s ease-out;
 }
 
-.home-blossom .kf-tag-flower { width: 100%; height: 100%; min-width: 0; min-height: 0; }
-.home-blossom .kf-tag-flower .kf-petals ellipse { fill: var(--petal-color); stroke: #fff; stroke-width: 2; }
-.home-blossom .kf-tag-flower .kf-center { fill: var(--center-color); stroke: #fff; stroke-width: 1.5; }
-
-.kindness-card button:disabled {
-  opacity: .55;
-  cursor: not-allowed;
+.home-blossom:hover,
+.home-blossom:focus-visible,
+.home-blossom.is-active {
+  z-index: 5;
+  outline: 0;
+  transform: translate(-50%, -50%) scale(1.15);
+  filter: drop-shadow(0 0 .75cqw #fff) drop-shadow(0 0 1.25cqw #ff7595);
 }
+
+.home-blossom-image,
+.flower-story-icon {
+  display: block;
+  width: 100%;
+  height: 100%;
+  background-image: url("assets/kindness-flowers.png");
+  background-repeat: no-repeat;
+  background-size: 300% 400%;
+  background-position: var(--flower-x, 0%) var(--flower-y, 0%);
+}
+
+.flower-story {
+  position: absolute;
+  z-index: 7;
+  width: 33cqw;
+  min-height: 12cqw;
+  display: grid;
+  grid-template-columns: 6cqw minmax(0, 1fr) 2.8cqw;
+  align-items: center;
+  gap: 1.1cqw;
+  padding: 1.5cqw 1.4cqw;
+  border: .14cqw solid #f0b7bb;
+  border-radius: 1.8cqw;
+  background: #fffaf7f5;
+  color: #153962;
+  box-shadow: 0 .65cqw 2.2cqw #7e405838;
+}
+
+.flower-story::after {
+  content: "";
+  position: absolute;
+  left: var(--story-pointer-x, 50%);
+  bottom: -1.2cqw;
+  width: 2.2cqw;
+  height: 2.2cqw;
+  border-right: .14cqw solid #f0b7bb;
+  border-bottom: .14cqw solid #f0b7bb;
+  background: #fffaf7;
+  transform: translateX(-50%) rotate(45deg);
+}
+
+.flower-story[hidden] { display: none; }
+.flower-story-icon { width: 5.6cqw; height: 5.6cqw; filter: drop-shadow(0 .2cqw .3cqw #173b2530); }
+.flower-story-copy { min-width: 0; }
+.flower-story-copy strong { display: block; color: #173b63; font-size: 1.9cqw; font-weight: 900; line-height: 1.12; }
+.flower-story-copy p { margin: .45cqw 0 0; color: #52647d; font-size: 1.35cqw; font-weight: 600; line-height: 1.2; }
+.flower-story-copy time { display: block; margin-top: .65cqw; color: #8993a5; font-size: 1.35cqw; font-weight: 700; }
+#flower-story-close { align-self: start; width: 2.7cqw; height: 2.7cqw; display: grid; place-items: center; padding: 0; border: 0; background: transparent; color: #49617c; font-size: 2.8cqw; line-height: 1; cursor: pointer; }
 
 /* ---------- Flow overlay ---------- */
 
