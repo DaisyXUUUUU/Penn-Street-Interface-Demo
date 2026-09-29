@@ -29,7 +29,6 @@
   const flowerStoryEl = document.getElementById('flower-story');
   const flowerStoryIconEl = document.getElementById('flower-story-icon');
   const flowerStoryTitleEl = document.getElementById('flower-story-title');
-  const flowerStoryDescriptionEl = document.getElementById('flower-story-description');
   const flowerStoryTimeEl = document.getElementById('flower-story-time');
   const flowerStoryCloseEl = document.getElementById('flower-story-close');
 
@@ -193,7 +192,6 @@
     button.classList.add('is-active');
     flowerStoryIconEl.setAttribute('style', flowerSpriteStyle(variant));
     flowerStoryTitleEl.textContent = story.title;
-    flowerStoryDescriptionEl.textContent = story.description;
     flowerStoryTimeEl.textContent = plantedTimeLabel(blossom.createdAt);
     flowerStoryEl.hidden = false;
 

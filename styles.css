@@ -163,12 +163,18 @@ body {
   margin: -1cqw 0 -1.2cqw;
   overflow: hidden;
   border-radius: 1.4cqw;
-  background: linear-gradient(180deg, #e3f3fd 0, #eef7fb 38%, #f6f8ec 70%, #dbe9c4 100%);
+  background: linear-gradient(180deg, #eaf4fb 0, #f4f7f8 45%, #f5f5f4 100%);
   box-shadow: 0 .5cqw 1.6cqw #254b751c;
 }
 
-/* Anchored bottom-right so the shelter tucks into the corner beside the tree. */
-.kindness-background { position: absolute; z-index: 0; inset: 0; width: 100%; height: 100%; object-fit: cover; object-position: 100% 100%; }
+/* Scaled to the card width (not cover) and anchored to the bottom, so less foliage shows;
+   the top edge fades into the sky colour so the cropped corner leaves don't end abruptly. */
+.kindness-background {
+  position: absolute; z-index: 0; right: 0; bottom: 0; width: 100%; height: auto;
+  opacity: .9;
+  -webkit-mask-image: linear-gradient(180deg, transparent 0, #000 22%);
+  mask-image: linear-gradient(180deg, transparent 0, #000 22%);
+}
 .kindness-hero::before { content: ""; position: absolute; z-index: 1; inset: 0 auto 0 0; width: 52%; background: linear-gradient(90deg, #f2f8fbcc 0, #f2f8fb99 55%, #f2f8fb00 100%); pointer-events: none; }
 
 .kindness-copy {
@@ -178,7 +184,11 @@ body {
   top: 8.6cqw;
   width: 44cqw;
   color: #0b2b2b;
+  /* The text box overlaps the tree's left side; let taps through to the flowers. */
+  pointer-events: none;
 }
+
+.kindness-copy button { pointer-events: auto; }
 
 .kindness-copy h2 { margin: 0; color: #0b2b2b; font-size: 5.6cqw; font-weight: 800; line-height: 1.02; white-space: nowrap; letter-spacing: -.15cqw; }
 .kindness-tagline { margin: 2.2cqw 0 0; color: #5c6b6b; font-size: 2.35cqw; font-weight: 400; line-height: 1.25; }

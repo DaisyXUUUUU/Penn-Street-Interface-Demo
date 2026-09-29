@@ -66,8 +66,8 @@
 .flower-story {
   position: absolute;
   z-index: 7;
-  width: 33cqw;
-  min-height: 12cqw;
+  width: 30cqw;
+  min-height: 0;
   display: grid;
   grid-template-columns: 6cqw minmax(0, 1fr) 2.8cqw;
   align-items: center;
@@ -97,7 +97,6 @@
 .flower-story-icon { width: 5.6cqw; height: 5.6cqw; filter: drop-shadow(0 .2cqw .3cqw #173b2530); }
 .flower-story-copy { min-width: 0; }
 .flower-story-copy strong { display: block; color: #173b63; font-size: 1.9cqw; font-weight: 900; line-height: 1.12; }
-.flower-story-copy p { margin: .45cqw 0 0; color: #52647d; font-size: 1.35cqw; font-weight: 600; line-height: 1.2; }
 .flower-story-copy time { display: block; margin-top: .65cqw; color: #8993a5; font-size: 1.35cqw; font-weight: 700; }
 #flower-story-close { align-self: start; width: 2.7cqw; height: 2.7cqw; display: grid; place-items: center; padding: 0; border: 0; background: transparent; color: #49617c; font-size: 2.8cqw; line-height: 1; cursor: pointer; }
 
